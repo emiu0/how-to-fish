@@ -2,236 +2,254 @@ import random
 import time
 import streamlit as st
 
-# Cấu hình trang web
-st.set_page_config(page_title="How to Fish - Island Adventure", page_icon="🎣", layout="centered")
+# Cấu hình giao diện Streamlit
+st.set_page_config(page_title="How to Fish - Island Explorer", page_icon="🎣", layout="centered")
 
-# Giao diện CSS tùy chỉnh
+# CSS tùy chỉnh hình nền Banner chính
 st.markdown("""
     <style>
-    .banner-box {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    .banner-container {
+        background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
         color: white;
-        padding: 20px;
-        border-radius: 12px;
+        padding: 25px;
+        border-radius: 15px;
         text-align: center;
+        border: 2px solid #00d2ff;
+        box-shadow: 0px 4px 15px rgba(0, 210, 255, 0.3);
         margin-bottom: 20px;
     }
-    .island-card {
-        background-color: #f8f9fa;
-        border-left: 5px solid #1E88E5;
-        padding: 12px 15px;
-        border-radius: 6px;
-        margin-bottom: 12px;
-        color: #333;
+    .island-box {
+        background-color: #1e293b;
+        color: white;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 6px solid #00d2ff;
+        margin-bottom: 15px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 1. DỮ LIỆU CÁC ĐẢO & BOSS ---
-ISLANDS = {
+# --- 1. DỮ LIỆU BẢN ĐỒ CÁC ĐẢO & CHÌA KHÓA ---
+# Mỗi đảo có 'key_id_needed' (ID chìa khóa cần để vào) và 'key_id_reward' (ID chìa khóa nhận được khi thắng Boss)
+ISLAND_DATA = {
     1: {
         "name": "🏝️ Đảo Tân Thủ (Green Lake)",
-        "difficulty": "Dễ",
-        "desc": "Vùng hồ yên bình, thích hợp cho người mới học câu cá.",
-        "fishes": ["🐟 Cá Rô Phi", "🐠 Cá Bảy Màu", "🦐 Tôm Sông"],
+        "difficulty": "Dễ 🟢",
+        "desc": "Vùng nước nông yên bình, nơi lý tưởng để bắt đầu sự nghiệp câu cá.",
+        "fishes": ["🐟 Cá Rô Phi", "🐠 Cá Bảy Màu", "🦐 Tôm Biển"],
         "boss": "🦈 Cá Trê Khổng Lồ",
-        "key_needed": None,
-        "key_reward": "Chìa khóa Đảo San Hò 🗝️"
+        "key_id_needed": None,       # Không cần chìa khóa
+        "key_id_reward": 2,          # Thắng Boss đảo 1 sẽ nhận Chìa Khóa vào Đảo 2
+        "reward_name": "🗝️ Chìa Khóa San Hò"
     },
     2: {
-        "name": "🪸 Đảo San Hò (Coral Atoll)",
-        "difficulty": "Trung bình",
-        "desc": "Vùng biển sâu với các loài sinh vật ngầm nguy hiểm.",
+        "name": "🪸 Đảo San Hò (Coral Reef)",
+        "difficulty": "Trung Bình 🔵",
+        "desc": "Vùng biển xanh thẫm ẩn chứa nhiều sinh vật săn mồi hung hãn.",
         "fishes": ["🐟 Cá Hồi Đại Dương", "🐙 Bạch Tuộc Nhỏ", "🦀 Cua Hoàng Gia"],
         "boss": "🐊 Cá Sấu Nước Mặn",
-        "key_needed": "Chìa khóa Đảo San Hò 🗝️",
-        "key_reward": "Chìa khóa Đảo Quái Vật 🔑"
+        "key_id_needed": 2,          # Cần chìa khóa ID 2
+        "key_id_reward": 3,          # Thắng Boss đảo 2 sẽ nhận Chìa Khóa vào Đảo 3
+        "reward_name": "🔑 Chìa Khóa Quái Vật"
     },
     3: {
         "name": "🌋 Đảo Quái Vật (Volcano Isle)",
-        "difficulty": "Khó",
-        "desc": "Vùng biển dung nham nóng rực, sào huyệt của thủy quái.",
-        "fishes": ["🦈 Cá Mập Xám", "🦑 Mực Ống Khổng Lồ", "🐍 Rắn Biển Độc"],
+        "difficulty": "Khó 🔴",
+        "desc": "Vùng biển núi lửa nóng rực, sào huyệt của các thủy quái dị biến.",
+        "fishes": ["🦈 Cá Mập Xám", "🦑 Mực Khổng Lồ", "🐍 Rắn Biển Biến Dị"],
         "boss": "🐉 Thủy Quái Leviathan",
-        "key_needed": "Chìa khóa Đảo Quái Vật 🔑",
-        "key_reward": "Chìa khóa Đảo Băng Giá 🗝️✨"
+        "key_id_needed": 3,          # Cần chìa khóa ID 3
+        "key_id_reward": 4,
+        "reward_name": "🗝️✨ Chìa Khóa Huyền Thoại"
     }
 }
 
-# --- 2. KHỞI TẠO SESSION STATE ---
+# --- 2. KHỞI TẠO KHÔNG GIAN LƯU TRỮ (SESSION STATE) ---
 if "gold" not in st.session_state:
-    st.session_state.gold = 150
+    st.session_state.gold = 200
     st.session_state.hp = 100
     st.session_state.current_island = 1
-    st.session_state.keys = []
+    st.session_state.owned_keys = [1]      # Mặc định sở hữu Chìa khóa Đảo 1
     st.session_state.inventory = []
     st.session_state.boat_level = 1
-    st.session_state.menu = "FISHING"
+    st.session_state.nav_menu = "FISHING"  # FISHING, MAP, SHOP, INVENTORY
 
-# --- 3. BANNER TIÊU ĐỀ ---
+# --- 3. BANNER HÌNH NỀN CHÍNH DÀNH CHO GAME ---
 st.markdown("""
-    <div class="banner-box">
-        <h1 style='margin:0; font-size: 28px;'>🎣 HOW TO FISH: ISLAND ADVENTURE</h1>
-        <p style='margin-top:5px; font-style: italic;'>Khám phá đảo • Săn Boss cá lớn • Thu thập chìa khóa lái thuyền!</p>
+    <div class="banner-container">
+        <h1 style='margin:0; font-size: 32px;'>🎣 HOW TO FISH: BẢN ĐỒ VÀ ĐẢO</h1>
+        <p style='margin-top:8px; font-style: italic; color: #cbd5e1;'>
+            Câu cá tích vàng • Săn Boss nhận chìa khóa • Lái thuyền khám phá đại dương!
+        </p>
     </div>
 """, unsafe_allow_html=True)
 
-# Thanh chỉ số trên cùng
-col1, col2, col3, col4 = st.columns(4)
-with col1:
+# Thanh hiển thị chỉ số nhân vật
+c1, c2, c3, c4 = st.columns(4)
+with c1:
     st.metric("💰 Vàng", f"{st.session_state.gold} 🪙")
-with col2:
-    st.metric("❤️ HP", f"{st.session_state.hp}/100")
-with col3:
+with c2:
+    st.metric("❤️ Sinh Lực", f"{st.session_state.hp}/100")
+with c3:
     st.metric("🚤 Thuyền", f"Cấp {st.session_state.boat_level}")
-with col4:
-    st.metric("🔑 Chìa khóa", len(st.session_state.keys))
+with c4:
+    st.metric("🔑 Số Chìa Khóa", len(st.session_state.owned_keys))
 
 st.markdown("---")
 
-# --- 4. MENU ĐIỀU HƯỚNG CHÍNH ---
+# --- 4. THANH MENU CHÍNH ---
 m1, m2, m3, m4 = st.columns(4)
 with m1:
-    if st.button("🎣 Hồ Câu", use_container_width=True):
-        st.session_state.menu = "FISHING"
+    if st.button("🎣 Hồ Câu", key="nav_fish", use_container_width=True):
+        st.session_state.nav_menu = "FISHING"
         st.rerun()
 with m2:
-    if st.button("🗺️ Bản Đồ Đảo", use_container_width=True):
-        st.session_state.menu = "MAP"
+    if st.button("🗺️ Chọn Đảo", key="nav_map", use_container_width=True):
+        st.session_state.nav_menu = "MAP"
         st.rerun()
 with m3:
-    if st.button("🛒 Cửa Hàng", use_container_width=True):
-        st.session_state.menu = "SHOP"
+    if st.button("🛒 Cửa Hàng", key="nav_shop", use_container_width=True):
+        st.session_state.nav_menu = "SHOP"
         st.rerun()
 with m4:
-    if st.button("🎒 Kho Đồ", use_container_width=True):
-        st.session_state.menu = "INVENTORY"
+    if st.button("🎒 Kho Đồ", key="nav_inv", use_container_width=True):
+        st.session_state.nav_menu = "INVENTORY"
         st.rerun()
 
 st.markdown("---")
 
-current_map = ISLANDS[st.session_state.current_island]
+current_island_data = ISLAND_DATA[st.session_state.current_island]
 
-# --- 5. MÀN HÌNH CÂU CÁ & SĂN BOSS ---
-if st.session_state.menu == "FISHING":
-    st.subheader(f"📍 Đang ở: {current_map['name']}")
-    st.write(f"_{current_map['desc']}_")
+# --- 5. MÀN HÌNH MỤC CÂU CÁ & SĂN BOSS ---
+if st.session_state.nav_menu == "FISHING":
+    st.subheader(f"📍 Vị trí: {current_island_data['name']}")
+    st.write(f"_{current_island_data['desc']}_")
     
-    st.info(f"🎯 **Mục tiêu Boss trên đảo này:** Săn **{current_map['boss']}** để nhận **{current_map['key_reward']}**!")
+    st.info(f"🎯 **Nhiệm vụ Đảo này:** Đánh bại Boss **{current_island_data['boss']}** để đoạt lấy **{current_island_data['reward_name']}**!")
     
-    col_f1, col_f2 = st.columns(2)
+    col_act1, col_act2 = st.columns(2)
     
-    with col_f1:
-        if st.button("🎣 Thả cần câu cá thường", use_container_width=True):
+    with col_act1:
+        if st.button("🎣 Câu cá kiếm tiền", key="btn_fish_normal", use_container_width=True):
             with st.spinner("Đang chờ cá cắn câu..."):
-                time.sleep(0.8)
-                fish = random.choice(current_map["fishes"])
-                earned = random.randint(25, 50) * st.session_state.current_island
-                st.session_state.gold += earned
-                st.session_state.inventory.append(fish)
-                st.success(f"🎉 Bạn bắt được **{fish}** và bán được **+{earned} 🪙**!")
+                time.sleep(0.7)
+                caught_fish = random.choice(current_island_data["fishes"])
+                earned_gold = random.randint(30, 70) * st.session_state.current_island
+                
+                st.session_state.gold += earned_gold
+                st.session_state.inventory.append(caught_fish)
+                st.success(f"🎉 Bạn câu được **{caught_fish}** và bán được **+{earned_gold} 🪙**!")
 
-    with col_f2:
-        if st.button(f"⚔️ Săn Boss ({current_map['boss']})", use_container_width=True):
-            with st.spinner("Giao chiến căng thẳng với cá lớn..."):
+    with col_act2:
+        if st.button(f"⚔️ Giao chiến với Boss", key="btn_fight_boss", use_container_width=True):
+            with st.spinner("Đang chiến đấu kịch liệt với Boss..."):
                 time.sleep(1.2)
-                win_chance = 45 + (st.session_state.boat_level * 15)
+                # Tỷ lệ chiến thắng phụ thuộc vào cấp thuyền
+                win_chance = 40 + (st.session_state.boat_level * 15)
                 roll = random.randint(1, 100)
                 
                 if roll <= win_chance:
-                    reward = current_map["key_reward"]
                     st.balloons()
-                    st.success(f"💥 THẮNG LỢI! Bạn đã hạ gục thành công **{current_map['boss']}**!")
+                    st.success(f"💥 XUẤT SẮC! Bạn đã đánh bại **{current_island_data['boss']}**!")
                     
-                    if reward not in st.session_state.keys:
-                        st.session_state.keys.append(reward)
-                        st.info(f"🗝️ Bạn nhận được phần thưởng quan trọng: **{reward}**!")
+                    target_key_id = current_island_data["key_id_reward"]
+                    if target_key_id not in st.session_state.owned_keys:
+                        st.session_state.owned_keys.append(target_key_id)
+                        st.info(f"🗝️ Bạn đã nhặt được: **{current_island_data['reward_name']}**! Giờ bạn đã có thể lái thuyền sang đảo tiếp theo trên Bản Đồ!")
                     else:
                         st.session_state.gold += 300
-                        st.write("Nhận thêm thưởng **+300 🪙** vàng!")
+                        st.write("Bạn nhận được tiền thưởng thêm **+300 🪙** vàng!")
                 else:
-                    dmg = random.randint(15, 30)
-                    st.session_state.hp -= dmg
-                    st.error(f"💥 Boss phản đòn quá mạnh! Bạn bị mất **-{dmg} HP**!")
-                    if st.session_state.hp <= 0:
-                        st.error("💀 Bạn đã ngất xỉu vì hết máu! Hãy vào cửa hàng hồi phục ngay.")
+                    damage = random.randint(15, 30)
+                    st.session_state.hp -= damage
+                    st.error(f"💥 Boss phản đòn quá mạnh! Bạn bị mất **-{damage} HP**!")
 
-# --- 6. MÀN HÌNH BẢN ĐỒ LÁI THUYỀN SANG ĐẢO ---
-elif st.session_state.menu == "MAP":
-    st.subheader("🗺️ Bản Đồ Hàng Hải & Chọn Đảo")
-    st.write("Sử dụng chìa khóa thu thập được để lái thuyền sang các vùng đất mới:")
+# --- 6. MÀN HÌNH BẢN ĐỒ LÁI THUYỀN SANG ĐẢO (ĐÃ SỬA SẠCH LỖI KEY) ---
+elif st.session_state.nav_menu == "MAP":
+    st.subheader("🗺️ Bản Đồ Đại Dương & Bến Tàu")
+    st.write("Chọn hòn đảo muốn lái thuyền cập bến:")
     
-    for island_id, data in ISLANDS.items():
+    for island_id, data in ISLAND_DATA.items():
         st.markdown(f"""
-            <div class="island-card">
-                <b>{data['name']}</b> ({data['difficulty']})<br>
-                <small>{data['desc']}</small>
+            <div class="island-box">
+                <h4 style='margin:0;'>{data['name']} ({data['difficulty']})</h4>
+                <p style='margin:5px 0 0 0; font-size: 14px;'>{data['desc']}</p>
             </div>
         """, unsafe_allow_html=True)
         
-        c_m1, c_m2 = st.columns([2, 1])
-        with c_m1:
-            if data["key_needed"] is None:
-                st.caption("✅ Vùng biển tự do")
+        col_m1, col_m2 = st.columns([2, 1])
+        
+        # Kiểm tra điều kiện mở khóa đảo
+        req_key = data["key_id_needed"]
+        has_access = (req_key is None) or (req_key in st.session_state.owned_keys)
+        
+        with col_m1:
+            if req_key is None:
+                st.caption("✅ Đảo Tân Thủ (Đã mở sẵn)")
+            elif has_access:
+                st.caption("🔓 Đã có chìa khóa mở cổng đảo!")
             else:
-                if data["key_needed"] in st.session_state.keys:
-                    st.caption(f"🔓 Đã có điều kiện mở khóa ({data['key_needed']})")
-                else:
-                    st.caption(f"🔒 Cần: {data['key_needed']}")
-                    
-        with c_m2:
+                st.caption(f"🔒 Cần chìa khóa: **{ISLAND_DATA[req_key - 1]['reward_name']}** (Đánh bại Boss Đảo {req_key - 1} để lấy)")
+                
+        with col_m2:
             if st.session_state.current_island == island_id:
-                st.button("📍 Đang đứng đây", key=f"btn_pos_{island_id}", disabled=True)
+                st.button("📍 Đang ở đây", key=f"island_curr_{island_id}", disabled=True, use_container_width=True)
             else:
-                can_travel = (data["key_needed"] is None) or (data["key_needed"] in st.session_state.keys)
-                if st.button("⛵ Lái thuyền", key=f"btn_travel_{island_id}", disabled=not can_travel):
+                # Tạo key duy nhất cho nút bấm lái thuyền
+                if st.button("⛵ Lái thuyền đến", key=f"island_goto_{island_id}", disabled=not has_access, use_container_width=True):
                     st.session_state.current_island = island_id
-                    st.success(f"Đã lái thuyền cập bến **{data['name']}** thành công!")
+                    st.success(f"Đã di chuyển thuyền đến **{data['name']}**!")
                     st.rerun()
 
 # --- 7. MÀN HÌNH CỬA HÀNG ---
-elif st.session_state.menu == "SHOP":
-    st.subheader("🛒 Cửa Hàng Nâng Cấp & Hồi Phục")
+elif st.session_state.nav_menu == "SHOP":
+    st.subheader("🛒 Cửa Hàng Bến Tàu")
     
-    s1, s2 = st.columns(2)
-    with s1:
+    shop_col1, shop_col2 = st.columns(2)
+    with shop_col1:
         st.write("**🚤 Nâng cấp Thuyền**")
-        boat_cost = st.session_state.boat_level * 250
-        st.write(f"Cấp: {st.session_state.boat_level} | Giá: **{boat_cost} 🪙**")
-        if st.button("Nâng cấp Thuyền ngay"):
-            if st.session_state.gold >= boat_cost:
-                st.session_state.gold -= boat_cost
+        upgrade_cost = st.session_state.boat_level * 200
+        st.write(f"Cấp thuyền: {st.session_state.boat_level} ➔ Tăng % thắng Boss")
+        st.write(f"Giá: **{upgrade_cost} 🪙**")
+        
+        if st.button("Nâng cấp ngay", key="btn_upgrade_boat"):
+            if st.session_state.gold >= upgrade_cost:
+                st.session_state.gold -= upgrade_cost
                 st.session_state.boat_level += 1
-                st.success("Thuyền đã được nâng cấp vững chắc hơn!")
+                st.success("Thuyền đã được gia cố kiên cố hơn!")
                 st.rerun()
             else:
-                st.error("Không đủ tiền vàng!")
-                
-    with s2:
-        st.write("**❤️ Hồi phục HP (+50)**")
-        st.write("Giá: **70 🪙**")
-        if st.button("Mua bình máu"):
-            if st.session_state.gold >= 70:
-                st.session_state.gold -= 70
-                st.session_state.hp = min(100, st.session_state.hp + 50)
-                st.success("Đã hồi phục 50 HP thành công!")
-                st.rerun()
-            else:
-                st.error("Không đủ tiền vàng!")
+                st.error("Không đủ vàng!")
 
-# --- 8. MÀN HÌNH KHO ĐỒ ---
-elif st.session_state.menu == "INVENTORY":
+    with shop_col2:
+        st.write("**❤️ Hồi Phục Sinh Lực (+50 HP)**")
+        st.write("Giá: **60 🪙**")
+        
+        if st.button("Mua Bình Máu", key="btn_buy_hp"):
+            if st.session_state.gold >= 60:
+                st.session_state.gold -= 60
+                st.session_state.hp = min(100, st.session_state.hp + 50)
+                st.success("Đã hồi phục 50 HP!")
+                st.rerun()
+            else:
+                st.error("Không đủ vàng!")
+
+# --- 8. MÀN HÌNH KHO ĐỒ & CHÌA KHÓA ---
+elif st.session_state.nav_menu == "INVENTORY":
     st.subheader("🎒 Kho Đồ & Chìa Khóa Hành Trình")
     
-    st.markdown("#### 🗝️ Chìa Khóa Đảo:")
-    if st.session_state.keys:
-        for k in st.session_state.keys:
-            st.write(f"- {k}")
+    st.markdown("#### 🔑 Danh Sách Chìa Khóa Đã Sở Hữu:")
+    if st.session_state.owned_keys:
+        for k_id in st.session_state.owned_keys:
+            if k_id == 1:
+                st.write("- 🗝️ Chìa Khóa Tân Thủ (Mở Đảo 1)")
+            else:
+                st.write(f"- {ISLAND_DATA[k_id - 1]['reward_name']} (Mở Đảo {k_id})")
     else:
-        st.write("Chưa sở hữu chìa khóa nào. Hãy đi săn Boss ở Hồ Câu!")
+        st.write("Chưa có chìa khóa nào.")
         
     st.markdown("---")
-    st.markdown("#### 🐟 Bộ Sưu Tập Cá Đã Câu Được:")
+    st.markdown("#### 🐟 Bộ Sưu Tập Cá Đã Câu:")
     if st.session_state.inventory:
         st.write(", ".join(set(st.session_state.inventory)))
     else:
