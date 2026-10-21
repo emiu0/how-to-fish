@@ -1,347 +1,392 @@
-import random
-import time
 import streamlit as st
+import streamlit.components.v1 as components
 
-# Cấu hình giao diện Streamlit
-st.set_page_config(page_title="How to Catch Fish", page_icon="🎣", layout="wide")
+# Cấu hình trang web Streamlit full màn hình
+st.set_page_config(
+    page_title="How to Catch Fish - 2D Interactive Game",
+    page_icon="🎣",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# --- CSS TÙY CHỈNH GIAO DIỆN CHUẨN GAME ---
+# Ẩn header và footer mặc định của Streamlit
 st.markdown("""
     <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     header {visibility: hidden;}
-    .stApp {
-        background: linear-gradient(135deg, #0b1d28 0%, #162636 50%, #13222d 100%);
-        color: #e2e8f0;
-    }
-    .game-title {
-        font-family: 'Courier New', Courier, monospace;
-        font-size: 52px;
-        font-weight: 900;
-        line-height: 0.95;
-        color: #f6ad55;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
-        margin-bottom: 5px;
-    }
-    .game-subtitle {
-        font-size: 11px;
-        letter-spacing: 3px;
-        color: #cbd5e1;
-        text-transform: uppercase;
-        margin-bottom: 25px;
-        border-left: 2px solid #f6ad55;
-        padding-left: 8px;
-    }
-    .island-view-box {
-        background: radial-gradient(circle, #2d5a6f 0%, #0d212c 70%);
-        border: 2px solid #2d4a5c;
-        border-radius: 15px;
-        padding: 40px;
-        text-align: center;
-        box-shadow: 0px 10px 30px rgba(0,0,0,0.6);
-        min-height: 380px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    }
-    .island-card {
-        background-color: #1e293b;
-        color: white;
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 6px solid #00d2ff;
-        margin-bottom: 15px;
-    }
+    .block-container {padding: 0rem !important;}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 1. DỮ LIỆU CÁC ĐẢO VÀ CHÌA KHÓA ---
-ISLAND_DATA = {
-    1: {
-        "name": "🏝️ Đảo Tân Thủ (Green Lake)",
-        "difficulty": "Dễ 🟢",
-        "desc": "Vùng nước nông yên bình, thích hợp cho người mới bắt đầu.",
-        "fishes": ["🐟 Cá Rô Phi", "🐠 Cá Bảy Màu", "🦐 Tôm Biển"],
-        "boss": "🦈 Cá Trê Khổng Lồ",
-        "key_id_needed": None,
-        "key_id_reward": 2,
-        "reward_name": "🗝️ Chìa Khóa San Hò"
-    },
-    2: {
-        "name": "🪸 Đảo San Hò (Coral Reef)",
-        "difficulty": "Trung Bình 🔵",
-        "desc": "Vùng biển xanh thẫm ẩn chứa nhiều sinh vật săn mồi hung hãn.",
-        "fishes": ["🐟 Cá Hồi Đại Dương", "🐙 Bạch Tuộc Nhỏ", "🦀 Cua Hoàng Gia"],
-        "boss": "🐊 Cá Sấu Nước Mặn",
-        "key_id_needed": 2,
-        "key_id_reward": 3,
-        "reward_name": "🔑 Chìa Khóa Quái Vật"
-    },
-    3: {
-        "name": "🌋 Đảo Quái Vật (Volcano Isle)",
-        "difficulty": "Khó 🔴",
-        "desc": "Vùng biển núi lửa nóng rực, sào huyệt của thủy quái dị biến.",
-        "fishes": ["🦈 Cá Mập Xám", "🦑 Mực Khổng Lồ", "🐍 Rắn Biển Biến Dị"],
-        "boss": "🐉 Thủy Quái Leviathan",
-        "key_id_needed": 3,
-        "key_id_reward": 4,
-        "reward_name": "🗝️✨ Chìa Khóa Huyền Thoại"
+# Code HTML5 Canvas & JavaScript nguyên khối cho Game Đồ Họa 2D
+game_code = """
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>How to Catch Fish 2D</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #08121e; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #gameCanvas { display: block; width: 100vw; height: 100vh; background: #0b1d28; }
+        
+        /* Overlay UI Buttons */
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .interactive { pointer-events: auto; }
+        
+        /* Menu Overlay */
+        #mainMenu {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, rgba(11,29,40,0.95) 0%, rgba(19,34,45,0.85) 100%);
+            display: flex; flex-direction: column; justify-content: center; padding-left: 8%;
+            z-index: 100;
+        }
+        .game-subtitle { font-size: 14px; letter-spacing: 4px; color: #cbd5e1; margin-bottom: 5px; border-left: 3px solid #f6ad55; padding-left: 10px; }
+        .game-title { font-size: 64px; font-weight: 900; line-height: 0.9; color: #f6ad55; text-transform: uppercase; margin-bottom: 30px; text-shadow: 4px 4px 10px rgba(0,0,0,0.8); }
+        .menu-btn {
+            width: 220px; padding: 14px 20px; margin-bottom: 12px; background: #1a2e3b; color: #e2e8f0;
+            border: 1px solid #2d4a5c; border-radius: 6px; font-weight: bold; font-size: 16px; text-align: left;
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .menu-btn:hover { background: #f6ad55; color: #0b1d28; border-color: #f6ad55; transform: translateX(10px); }
+        
+        /* HUD Bar */
+        #hud {
+            position: absolute; top: 15px; left: 15px; right: 15px; display: none; justify-content: space-between;
+            background: rgba(15, 23, 42, 0.85); padding: 12px 20px; border-radius: 10px; border: 1px solid #334155; color: white;
+            font-weight: bold; z-index: 10;
+        }
+        .hud-item { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+        
+        /* Dialog Box */
+        #msgBox {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.9); color: #f8fafc; padding: 15px 30px; border-radius: 30px;
+            border: 2px solid #38bdf8; font-weight: bold; display: none; z-index: 20; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- MAIN MENU OVERLAY -->
+    <div id="mainMenu" class="interactive">
+        <div class="game-subtitle">A SURVIVAL FISHING ADVENTURE</div>
+        <div class="game-title">HOW TO<br>CATCH<br>FISH</div>
+        <button class="menu-btn" onclick="startGame()">▶ CONTINUED / PLAY</button>
+        <button class="menu-btn" onclick="startGame()">★ NEW GAME</button>
+        <button class="menu-btn" onclick="alert('Game 2D How To Fish - Dùng phím Mũi Tên/WASD để lái thuyền, bấm SPACE để quăng câu!')">⚙ INSTRUCTIONS</button>
+    </div>
+
+    <!-- HUD IN-GAME -->
+    <div id="hud">
+        <div class="hud-item">🪙 Vàng: <span id="goldVal">200</span></div>
+        <div class="hud-item">❤️ HP: <span id="hpVal">100</span></div>
+        <div class="hud-item">🚤 Cấp Thuyền: <span id="boatVal">1</span></div>
+        <div class="hud-item">🔑 Chìa khóa: <span id="keyVal">1/3</span></div>
+        <div class="hud-item">📍 Đảo: <span id="islandVal">Đảo Tân Thủ</span></div>
+    </div>
+
+    <div id="msgBox"></div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// --- GAME STATES ---
+let gameState = 'MENU'; // MENU, SAILING, FISHING
+let gold = 200;
+let hp = 100;
+let boatLevel = 1;
+let keysOwned = [1];
+let currentIsland = 1;
+
+// --- BOAT OBJECT ---
+const boat = {
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+    angle: 0,
+    speed: 0,
+    maxSpeed: 3.5,
+    accel: 0.15,
+    friction: 0.96,
+    radius: 18
+};
+
+// --- KEYS LOGIC ---
+const keys = {};
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+// --- ISLANDS DATA (2D POSITION) ---
+const islands = [
+    { id: 1, name: "Đảo Tân Thủ", x: window.innerWidth * 0.25, y: window.innerHeight * 0.35, radius: 80, color: "#22c55e", keyReq: null, keyReward: 2, boss: "🦈 Cá Trê Khổng Lồ" },
+    { id: 2, name: "Đảo San Hò", x: window.innerWidth * 0.75, y: window.innerHeight * 0.3, radius: 95, color: "#06b6d4", keyReq: 2, keyReward: 3, boss: "🐊 Cá Sấu Nước Mặn" },
+    { id: 3, name: "Đảo Quái Vật", x: window.innerWidth * 0.5, y: window.innerHeight * 0.75, radius: 110, color: "#ef4444", keyReq: 3, keyReward: 4, boss: "🐉 Thủy Quái Leviathan" }
+];
+
+// --- FISHING MINIGAME VARIABLES ---
+let fishingState = 'CAST'; // CAST, WAIT, REEL
+let tension = 50;
+let fishPos = 50;
+let targetPos = 50;
+let fishProgress = 0;
+let currentBoss = "";
+
+function showMsg(txt, duration = 2500) {
+    const box = document.getElementById('msgBox');
+    box.innerText = txt;
+    box.style.display = 'block';
+    setTimeout(() => { box.style.display = 'none'; }, duration);
+}
+
+function startGame() {
+    document.getElementById('mainMenu').style.display = 'none';
+    document.getElementById('hud').style.display = 'flex';
+    gameState = 'SAILING';
+    showMsg("⛵ Hãy dùng phím W/A/S/D hoặc Mũi Tên để lái thuyền đến khu vực có Đảo!");
+}
+
+function updateHUD() {
+    document.getElementById('goldVal').innerText = gold;
+    document.getElementById('hpVal').innerText = hp;
+    document.getElementById('boatVal').innerText = boatLevel;
+    document.getElementById('keyVal').innerText = keysOwned.length + "/3";
+    document.getElementById('islandVal').innerText = islands[currentIsland - 1].name;
+}
+
+// ================= GAME LOOP =================
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (gameState === 'MENU') {
+        drawOceanBackground();
+        drawIslands();
+    } 
+    else if (gameState === 'SAILING') {
+        updateSailing();
+        drawOceanBackground();
+        drawIslands();
+        drawBoat();
+        checkProximity();
+    } 
+    else if (gameState === 'FISHING') {
+        drawOceanBackground();
+        drawFishingMinigame();
+    }
+    
+    updateHUD();
+    requestAnimationFrame(gameLoop);
+}
+
+// --- DRAW OCEAN & WAVES ---
+function drawOceanBackground() {
+    ctx.fillStyle = '#0f2735';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Wave lines
+    ctx.strokeStyle = '#183c50';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < canvas.height; i += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(canvas.width, i);
+        ctx.stroke();
     }
 }
 
-# --- 2. KHỜI TẠO STATE ---
-if "game_state" not in st.session_state:
-    st.session_state.game_state = "MENU"  # MENU, PLAYING, SETTINGS, CREDITS
-    st.session_state.gold = 200
-    st.session_state.hp = 100
-    st.session_state.current_island = 1
-    st.session_state.owned_keys = [1]
-    st.session_state.inventory = []
-    st.session_state.boat_level = 1
-    st.session_state.nav_menu = "FISHING"
+// --- DRAW ISLANDS ---
+function drawIslands() {
+    islands.forEach(isl => {
+        // Safe Zone / Island Circle
+        ctx.fillStyle = isl.color;
+        ctx.beginPath();
+        ctx.arc(isl.x, isl.y, isl.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#fef08a';
+        ctx.stroke();
 
-# =========================================================================
-# GIAO DIỆN 1: MÀN HÌNH CHÍNH (MAIN MENU)
-# =========================================================================
-if st.session_state.game_state == "MENU":
-    col_menu, col_scene = st.columns([1, 1.5])
+        // Label
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(isl.name, isl.x, isl.y - isl.radius - 10);
+
+        // Lock / Unlock status
+        if (isl.keyReq && !keysOwned.includes(isl.keyReq)) {
+            ctx.fillStyle = '#f87171';
+            ctx.fillText("🔒 Khóa (Cần Chìa)", isl.x, isl.y + 5);
+        } else {
+            ctx.fillStyle = '#4ade80';
+            ctx.fillText("⚓ Vùng Cập Bến", isl.x, isl.y + 5);
+        }
+    });
+}
+
+// --- UPDATE SAILING PHYSICS ---
+function updateSailing() {
+    if (keys['KeyW'] || keys['ArrowUp']) {
+        boat.speed = Math.min(boat.speed + boat.accel, boat.maxSpeed);
+    } else if (keys['KeyS'] || keys['ArrowDown']) {
+        boat.speed = Math.max(boat.speed - boat.accel, -boat.maxSpeed / 2);
+    } else {
+        boat.speed *= boat.friction;
+    }
+
+    if (keys['KeyA'] || keys['ArrowLeft']) boat.angle -= 0.05;
+    if (keys['KeyD'] || keys['ArrowRight']) boat.angle += 0.05;
+
+    boat.x += Math.cos(boat.angle) * boat.speed;
+    boat.y += Math.sin(boat.angle) * boat.speed;
+
+    // Screen bounds
+    boat.x = Math.max(30, Math.min(canvas.width - 30, boat.x));
+    boat.y = Math.max(30, Math.min(canvas.height - 30, boat.y));
+}
+
+// --- DRAW BOAT ---
+function drawBoat() {
+    ctx.save();
+    ctx.translate(boat.x, boat.y);
+    ctx.rotate(boat.angle);
+
+    // Boat body
+    ctx.fillStyle = '#b45309';
+    ctx.beginPath();
+    ctx.moveTo(20, 0);
+    ctx.lineTo(-15, -10);
+    ctx.lineTo(-15, 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+// --- CHECK PROXIMITY TO ISLANDS ---
+function checkProximity() {
+    islands.forEach(isl => {
+        const dx = boat.x - isl.x;
+        const dy = boat.y - isl.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < isl.radius + boat.radius) {
+            if (isl.keyReq && !keysOwned.includes(isl.keyReq)) {
+                showMsg("🔒 Đảo này đã bị khóa! Hãy đánh bại Boss ở đảo trước để lấy Chìa Khóa!");
+            } else {
+                if (keys['Space']) {
+                    currentIsland = isl.id;
+                    currentBoss = isl.boss;
+                    startFishingMinigame();
+                } else {
+                    showMsg("⚓ Bấm [SPACE] để thả cần câu & Săn Boss cá lớn ở " + isl.name + "!");
+                }
+            }
+        }
+    });
+}
+
+// --- MINIGAME CÂU CÁ 2D ---
+function startFishingMinigame() {
+    gameState = 'FISHING';
+    fishingState = 'REEL';
+    tension = 50;
+    fishPos = 50;
+    fishProgress = 0;
+}
+
+function drawFishingMinigame() {
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = '#f6ad55';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText("⚔️ ĐANG CHIẾN ĐẤU VỚI BOSS: " + currentBoss, canvas.width / 2, 80);
+
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '16px sans-serif';
+    ctx.fillText("Nhấn [SPACE] liên tục để giữ thanh kéo trong vùng an toàn (40 - 70)!", canvas.width / 2, 115);
+
+    // Progress Bar
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(canvas.width / 2 - 150, 150, 300, 20);
+    ctx.fillStyle = '#22c55e';
+    ctx.fillRect(canvas.width / 2 - 150, 150, fishProgress * 3, 20);
+
+    // Tension Bar Graphic
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(canvas.width / 2 - 150, 200, 300, 40);
     
-    with col_menu:
-        st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
-        st.markdown("""
-            <div class="game-subtitle">A SURVIVAL FISHING ADVENTURE</div>
-            <div class="game-title">HOW TO<br>CATCH<br>FISH</div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-        
-        if st.button("▶ CONTINUE", key="btn_continue", use_container_width=True):
-            st.session_state.game_state = "PLAYING"
-            st.rerun()
-            
-        if st.button("★ NEW GAME", key="btn_newgame", use_container_width=True):
-            st.session_state.gold = 200
-            st.session_state.hp = 100
-            st.session_state.current_island = 1
-            st.session_state.owned_keys = [1]
-            st.session_state.inventory = []
-            st.session_state.boat_level = 1
-            st.session_state.game_state = "PLAYING"
-            st.rerun()
-            
-        if st.button("⚙ SETTINGS", key="btn_settings", use_container_width=True):
-            st.session_state.game_state = "SETTINGS"
-            st.rerun()
-            
-        if st.button("ℹ CREDITS", key="btn_credits", use_container_width=True):
-            st.session_state.game_state = "CREDITS"
-            st.rerun()
-            
-    with col_scene:
-        st.markdown("<div style='height: 60px;'></div>", unsafe_allow_html=True)
-        st.markdown("""
-            <div class="island-view-box">
-                <h1 style='font-size: 70px; margin: 0;'>🏝️</h1>
-                <h3 style='color: #63b3ed; margin-top: 10px;'>Đại Dương Bao La & Đảo Hoang</h3>
-                <p style='color: #a0aec0; font-size: 14px;'>Sẵn sàng giương buồm, câu cá và chinh phục các bí ẩn ngoài khơi xa.</p>
-            </div>
-        """, unsafe_allow_html=True)
+    // Target Safe Zone
+    ctx.fillStyle = 'rgba(34, 197, 94, 0.4)';
+    ctx.fillRect(canvas.width / 2 - 150 + 120, 200, 90, 40);
 
-# =========================================================================
-# GIAO DIỆN 2: SETTINGS (CÀI ĐẶT)
-# =========================================================================
-elif st.session_state.game_state == "SETTINGS":
-    st.title("⚙ Cài Đặt Trò Chơi")
-    st.slider("Âm lượng nhạc nền", 0, 100, 80)
-    st.slider("Độ phân giải / Hiệu ứng", 1, 3, 2)
-    
-    if st.button("⬅ Trở về Menu Chính"):
-        st.session_state.game_state = "MENU"
-        st.rerun()
+    // Player Indicator
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(canvas.width / 2 - 150 + (tension * 3) - 5, 195, 10, 50);
 
-# =========================================================================
-# GIAO DIỆN 3: CREDITS (THÔNG TIN TÁC GIẢ)
-# =========================================================================
-elif st.session_state.game_state == "CREDITS":
-    st.title("ℹ Thông Tin Nhà Phát Triển")
-    st.markdown("""
-    * **Tựa game:** How to Catch Fish / How to Fish
-    * **Thể loại:** Sinh tồn, Câu cá, Phiêu lưu khám phá đảo.
-    """)
-    if st.button("⬅ Trở về Menu Chính"):
-        st.session_state.game_state = "MENU"
-        st.rerun()
+    // Minigame Logic
+    tension -= 0.4; // Decay
+    if (keys['Space']) tension += 1.2;
+    tension = Math.max(0, Math.min(100, tension));
 
-# =========================================================================
-# GIAO DIỆN 4: TRONG TRÒ CHƠI (GAMEPLAY CHÍNH)
-# =========================================================================
-elif st.session_state.game_state == "PLAYING":
-    c_head1, c_head2 = st.columns([4, 1])
-    with c_head1:
-        st.markdown("### 🎣 HOW TO CATCH FISH: ISLAND EXPLORER")
-    with c_head2:
-        if st.button("🏠 Thoát về Menu", use_container_width=True):
-            st.session_state.game_state = "MENU"
-            st.rerun()
+    if (tension >= 40 && tension <= 70) {
+        fishProgress += 0.3;
+    } else {
+        fishProgress -= 0.1;
+    }
+    fishProgress = Math.max(0, Math.min(100, fishProgress));
 
-    # Thanh thông số nhân vật
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric("💰 Vàng", f"{st.session_state.gold} 🪙")
-    with c2:
-        st.metric("❤️ Sinh Lực", f"{st.session_state.hp}/100")
-    with c3:
-        st.metric("🚤 Thuyền", f"Cấp {st.session_state.boat_level}")
-    with c4:
-        st.metric("🔑 Chìa Khóa", len(st.session_state.owned_keys))
+    // Win condition
+    if (fishProgress >= 100) {
+        const isl = islands[currentIsland - 1];
+        if (!keysOwned.includes(isl.keyReward)) {
+            keysOwned.push(isl.keyReward);
+            showMsg("🎉 THẮNG LỢI! Bạn đã thu phục " + currentBoss + " & nhặt được CHÌA KHÓA mới!", 4000);
+        } else {
+            gold += 200;
+            showMsg("🎉 Bạn đã hạ gục " + currentBoss + " & thưởng +200 🪙!", 3000);
+        }
+        gameState = 'SAILING';
+    }
 
-    st.markdown("---")
+    // Exit Button
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(canvas.width / 2 - 60, 300, 120, 40);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText("Rút Lui", canvas.width / 2, 325);
+}
 
-    # Menu điều hướng trong game
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        if st.button("🎣 Hồ Câu", key="nav_fish", use_container_width=True):
-            st.session_state.nav_menu = "FISHING"
-            st.rerun()
-    with m2:
-        if st.button("🗺️ Chọn Đảo", key="nav_map", use_container_width=True):
-            st.session_state.nav_menu = "MAP"
-            st.rerun()
-    with m3:
-        if st.button("🛒 Cửa Hàng", key="nav_shop", use_container_width=True):
-            st.session_state.nav_menu = "SHOP"
-            st.rerun()
-    with m4:
-        if st.button("🎒 Kho Đồ", key="nav_inv", use_container_width=True):
-            st.session_state.nav_menu = "INVENTORY"
-            st.rerun()
+// Click to Quit Minigame
+window.addEventListener('click', e => {
+    if (gameState === 'FISHING') {
+        if (e.clientX >= canvas.width / 2 - 60 && e.clientX <= canvas.width / 2 + 60 &&
+            e.clientY >= 300 && e.clientY <= 340) {
+            gameState = 'SAILING';
+        }
+    }
+});
 
-    st.markdown("---")
+// Run Game
+gameLoop();
+</script>
+</body>
+</html>
+"""
 
-    current_island_data = ISLAND_DATA[st.session_state.current_island]
-
-    # 1. Hồ câu cá & Săn Boss lấy chìa khóa
-    if st.session_state.nav_menu == "FISHING":
-        st.subheader(f"📍 Vị trí: {current_island_data['name']}")
-        st.write(f"_{current_island_data['desc']}_")
-        
-        st.info(f"🎯 **Nhiệm vụ Đảo này:** Đánh bại Boss **{current_island_data['boss']}** để nhận **{current_island_data['reward_name']}**!")
-        
-        col_act1, col_act2 = st.columns(2)
-        with col_act1:
-            if st.button("🎣 Câu cá kiếm tiền", key="btn_fish_normal", use_container_width=True):
-                with st.spinner("Đang chờ cá cắn câu..."):
-                    time.sleep(0.7)
-                    caught_fish = random.choice(current_island_data["fishes"])
-                    earned_gold = random.randint(30, 70) * st.session_state.current_island
-                    st.session_state.gold += earned_gold
-                    st.session_state.inventory.append(caught_fish)
-                    st.success(f"🎉 Bạn câu được **{caught_fish}** và bán được **+{earned_gold} 🪙**!")
-
-        with col_act2:
-            if st.button(f"⚔️ Giao chiến với Boss", key="btn_fight_boss", use_container_width=True):
-                with st.spinner("Đang chiến đấu kịch liệt với Boss..."):
-                    time.sleep(1.2)
-                    win_chance = 40 + (st.session_state.boat_level * 15)
-                    roll = random.randint(1, 100)
-                    
-                    if roll <= win_chance:
-                        st.balloons()
-                        st.success(f"💥 XUẤT SẮC! Bạn đã đánh bại **{current_island_data['boss']}**!")
-                        target_key_id = current_island_data["key_id_reward"]
-                        if target_key_id not in st.session_state.owned_keys:
-                            st.session_state.owned_keys.append(target_key_id)
-                            st.info(f"🗝️ Bạn đã nhặt được: **{current_island_data['reward_name']}**! Giờ bạn có thể lái thuyền sang đảo tiếp theo!")
-                        else:
-                            st.session_state.gold += 300
-                            st.write("Nhận thêm phần thưởng **+300 🪙** vàng!")
-                    else:
-                        damage = random.randint(15, 30)
-                        st.session_state.hp -= damage
-                        st.error(f"💥 Boss phản đòn! Bạn bị mất **-{damage} HP**!")
-
-    # 2. Bản đồ lái thuyền sang đảo
-    elif st.session_state.nav_menu == "MAP":
-        st.subheader("🗺️ Bản Đồ Đại Dương & Bến Tàu")
-        st.write("Chọn hòn đảo muốn lái thuyền cập bến:")
-        
-        for island_id, data in ISLAND_DATA.items():
-            st.markdown(f"""
-                <div class="island-card">
-                    <h4 style='margin:0;'>{data['name']} ({data['difficulty']})</h4>
-                    <p style='margin:5px 0 0 0; font-size: 14px;'>{data['desc']}</p>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            col_m1, col_m2 = st.columns([2, 1])
-            req_key = data["key_id_needed"]
-            has_access = (req_key is None) or (req_key in st.session_state.owned_keys)
-            
-            with col_m1:
-                if req_key is None:
-                    st.caption("✅ Đảo Tân Thủ (Đã mở sẵn)")
-                elif has_access:
-                    st.caption("🔓 Đã có chìa khóa mở cổng đảo!")
-                else:
-                    st.caption(f"🔒 Cần chìa khóa: **{ISLAND_DATA[req_key - 1]['reward_name']}**")
-                    
-            with col_m2:
-                if st.session_state.current_island == island_id:
-                    st.button("📍 Đang ở đây", key=f"island_curr_{island_id}", disabled=True, use_container_width=True)
-                else:
-                    if st.button("⛵ Lái thuyền đến", key=f"island_goto_{island_id}", disabled=not has_access, use_container_width=True):
-                        st.session_state.current_island = island_id
-                        st.success(f"Đã di chuyển thuyền đến **{data['name']}**!")
-                        st.rerun()
-
-    # 3. Cửa hàng
-    elif st.session_state.nav_menu == "SHOP":
-        st.subheader("🛒 Cửa Hàng Bến Tàu")
-        shop_col1, shop_col2 = st.columns(2)
-        with shop_col1:
-            st.write("**🚤 Nâng cấp Thuyền**")
-            upgrade_cost = st.session_state.boat_level * 200
-            st.write(f"Cấp thuyền: {st.session_state.boat_level} ➔ Tăng % thắng Boss")
-            st.write(f"Giá: **{upgrade_cost} 🪙**")
-            if st.button("Nâng cấp ngay", key="btn_upgrade_boat"):
-                if st.session_state.gold >= upgrade_cost:
-                    st.session_state.gold -= upgrade_cost
-                    st.session_state.boat_level += 1
-                    st.success("Thuyền đã được nâng cấp!")
-                    st.rerun()
-                else:
-                    st.error("Không đủ tiền vàng!")
-
-        with shop_col2:
-            st.write("**❤️ Hồi Phục Sinh Lực (+50 HP)**")
-            st.write("Giá: **60 🪙**")
-            if st.button("Mua Bình Máu", key="btn_buy_hp"):
-                if st.session_state.gold >= 60:
-                    st.session_state.gold -= 60
-                    st.session_state.hp = min(100, st.session_state.hp + 50)
-                    st.success("Đã hồi phục 50 HP!")
-                    st.rerun()
-                else:
-                    st.error("Không đủ tiền vàng!")
-
-    # 4. Kho đồ
-    elif st.session_state.nav_menu == "INVENTORY":
-        st.subheader("🎒 Kho Đồ & Chìa Khóa Hành Trình")
-        st.markdown("#### 🔑 Danh Sách Chìa Khóa Đã Sở Hữu:")
-        if st.session_state.owned_keys:
-            for k_id in st.session_state.owned_keys:
-                if k_id == 1:
-                    st.write("- 🗝️ Chìa Khóa Tân Thủ (Mở Đảo 1)")
-                else:
-                    st.write(f"- {ISLAND_DATA[k_id - 1]['reward_name']} (Mở Đảo {k_id})")
-        else:
-            st.write("Chưa có chìa khóa nào.")
-            
-        st.markdown("---")
-        st.markdown("#### 🐟 Bộ Sưu Tập Cá Đã Câu:")
-        if st.session_state.inventory:
-            st.write(", ".join(set(st.session_state.inventory)))
-        else:
-            st.write("Kho cá đang trống.")
+# Nhúng Game vào trang Streamlit bằng HTML/Iframe
+components.html(game_code, height=750, scrolling=False)
