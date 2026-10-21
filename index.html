@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Fish: Survival Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #c9d1d9;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            user-select: none;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #161b22;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between items-center relative">
+
+    <!-- Top Navigation / Status Header -->
+    <header class="w-full bg-gray-900/90 border-b border-gray-800 px-4 py-2 flex justify-between items-center z-10 backdrop-blur">
+        <div class="flex items-center space-x-3">
+            <h1 class="text-xl font-bold tracking-wider text-amber-500 flex items-center gap-2">
+                <i class="fa-solid font-black fa-fish-fins"></i> HOW TO FISH
+            </h1>
+            <span class="text-xs bg-red-950 text-red-400 border border-red-800 px-2 py-0.5 rounded font-mono">SURVIVAL EDITION</span>
+        </div>
+
+        <!-- HUD Stats Top Bar -->
+        <div class="flex items-center space-x-6 text-sm font-mono">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-heart text-red-500"></i>
+                <div class="w-24 bg-gray-800 rounded-full h-3 border border-gray-700 overflow-hidden">
+                    <div id="hp-bar" class="bg-red-500 h-full w-full transition-all duration-200"></div>
+                </div>
+                <span id="hp-text" class="text-xs text-gray-300">100/100</span>
+            </div>
+
+            <div class="flex items-center gap-2 text-yellow-400">
+                <i class="fa-solid fa-coins"></i>
+                <span id="gold-display" class="font-bold">0</span>
+            </div>
+
+            <div class="flex items-center gap-2 text-cyan-400">
+                <i class="fa-solid fa-clock"></i>
+                <span id="time-display">08:00 AM</span>
+                <span id="day-display" class="text-xs text-gray-400">(Day 1)</span>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <button id="shop-btn" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1.5 rounded flex items-center gap-1.5 text-sm transition">
+                <i class="fa-solid fa-store"></i> Shop
+            </button>
+            <button id="sound-btn" class="bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded text-sm transition">
+                <i id="sound-icon" class="fa-solid fa-volume-high"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Canvas Container -->
+    <main class="relative w-full flex-1 flex justify-center items-center overflow-hidden bg-black">
+        <canvas id="gameCanvas" class="w-full h-full"></canvas>
+
+        <!-- On-Screen Controls Overlay / Floating HUD -->
+        <div class="absolute bottom-4 left-4 flex flex-col gap-2 z-10 font-mono text-xs">
+            <div class="bg-gray-900/80 p-2.5 rounded border border-gray-800 backdrop-blur text-gray-300">
+                <p><span class="text-amber-400 font-bold">1:</span> Fishing Rod | <span class="text-amber-400 font-bold">2:</span> Pistol | <span class="text-amber-400 font-bold">3:</span> Shotgun | <span class="text-amber-400 font-bold">4:</span> Sniper</p>
+                <p><span class="text-amber-400 font-bold">A/D:</span> Move | <span class="text-amber-400 font-bold">L-Click:</span> Shoot / Cast Line | <span class="text-amber-400 font-bold">R:</span> Reload</p>
+                <p><span class="text-amber-400 font-bold">E:</span> Sell All Fish in Inventory</p>
+            </div>
+        </div>
+
+        <!-- Weapon & Ammo Display -->
+        <div class="absolute bottom-4 right-4 z-10 font-mono">
+            <div id="weapon-hud" class="bg-gray-900/80 p-3 rounded-lg border border-gray-800 backdrop-blur flex items-center gap-4 text-white">
+                <div id="weapon-icon" class="text-2xl text-amber-500">
+                    <i class="fa-solid fa-fish"></i>
+                </div>
+                <div>
+                    <div id="weapon-name" class="font-bold text-sm text-amber-400">Fishing Rod</div>
+                    <div id="ammo-text" class="text-xs text-gray-400">Ready to cast</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reel Mini-game Overlay (hidden by default) -->
+        <div id="reel-minigame" class="absolute hidden flex flex-col items-center justify-center p-4 bg-gray-900/90 border border-amber-500/50 rounded-xl backdrop-blur shadow-2xl z-20 w-64">
+            <h3 class="text-amber-400 font-bold text-sm mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-fish-fins"></i> FISH ON THE HOOK!
+            </h3>
+            <div class="w-full bg-gray-800 rounded-lg h-6 relative border border-gray-700 overflow-hidden mb-2">
+                <!-- Target Zone -->
+                <div id="reel-target" class="absolute bg-emerald-500/50 border-x-2 border-emerald-400 h-full w-1/3"></div>
+                <!-- Tension Indicator -->
+                <div id="reel-indicator" class="absolute bg-red-500 h-full w-2 shadow-lg"></div>
+            </div>
+            <p class="text-xs text-gray-400 text-center mb-2">Hold <span class="text-amber-400 font-bold">CLICK / SPACE</span> to keep marker inside green zone!</p>
+            <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+                <div id="reel-progress" class="bg-amber-400 h-full w-0 transition-all duration-75"></div>
+            </div>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="gameover-modal" class="absolute inset-0 bg-black/85 backdrop-blur hidden flex-col items-center justify-center z-30">
+            <div class="bg-gray-900 border border-red-600/50 p-6 rounded-xl max-w-md w-full text-center shadow-2xl">
+                <i class="fa-solid fa-skull-crossbones text-5xl text-red-500 mb-3 animate-bounce"></i>
+                <h2 class="text-2xl font-bold text-red-500 mb-1">YOU DIED</h2>
+                <p class="text-sm text-gray-400 mb-4">The mutated sea creatures overran your dock.</p>
+                
+                <div class="bg-gray-800/60 rounded p-3 text-left font-mono text-xs space-y-1 mb-5 border border-gray-700">
+                    <p class="text-gray-300">Days Survived: <span id="go-days" class="text-amber-400 font-bold">1</span></p>
+                    <p class="text-gray-300">Fish Caught: <span id="go-fish" class="text-amber-400 font-bold">0</span></p>
+                    <p class="text-gray-300">Monsters Killed: <span id="go-kills" class="text-amber-400 font-bold">0</span></p>
+                </div>
+
+                <button id="restart-btn" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-lg transition shadow-lg">
+                    TRY AGAIN
+                </button>
+            </div>
+        </div>
+
+        <!-- Shop Modal -->
+        <div id="shop-modal" class="absolute inset-0 bg-black/80 backdrop-blur hidden flex-col items-center justify-center z-30 p-4">
+            <div class="bg-gray-900 border border-amber-500/40 p-5 rounded-xl max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl">
+                <div class="flex justify-between items-center border-b border-gray-800 pb-3 mb-4">
+                    <h2 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-store"></i> DOCK SHOP & UPGRADES
+                    </h2>
+                    <button id="close-shop" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1 font-mono text-sm" id="shop-items-list">
+                    <!-- Shop Items inserted by JS -->
+                </div>
+
+                <div class="border-t border-gray-800 pt-3 mt-4 flex justify-between items-center">
+                    <button id="sell-all-shop-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded text-xs transition flex items-center gap-2">
+                        <i class="fa-solid fa-sack-dollar"></i> Sell All Fish
+                    </button>
+                    <div class="text-yellow-400 font-bold">
+                        Balance: <span id="shop-gold-display">0</span> 🪙
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Game Engine Logic -->
+    <script>
+        // --- Web Audio API Synth Sound System ---
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playShoot(type) {
+                if (!this.enabled || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                if (type === 'pistol') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'shotgun') {
+                    // White noise blast
+                    const bufferSize = this.ctx.sampleRate * 0.25;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const output = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+
+                    const whiteNoise = this.ctx.createBufferSource();
+                    whiteNoise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(1000, now);
+                    filter.frequency.linearRampToValueAtTime(100, now + 0.25);
+
+                    gain.gain.setValueAtTime(0.5, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+                    whiteNoise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    whiteNoise.start(now);
+                } else if (type === 'sniper') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+                    gain.gain.setValueAtTime(0.5, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                }
+            }
+
+            playCatch() {
+                if (!this.enabled || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(260, now);
+                osc.frequency.setValueAtTime(330, now + 0.1);
+                osc.frequency.setValueAtTime(392, now + 0.2);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            }
+
+            playHit() {
+                if (!this.enabled || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(30, now + 0.1);
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            }
+        }
+
+        const audio = new SoundFX();
+
+        // --- Game Setup & State Management ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Game Configuration
+        const STATE = {
+            player: {
+                x: 250,
+                y: 0,
+                width: 30,
+                height: 50,
+                hp: 100,
+                maxHp: 100,
+                speed: 3.5,
+                gold: 50,
+                selectedWeapon: 0, // 0: Rod, 1: Pistol, 2: Shotgun, 3: Sniper
+                inventory: []
+            },
+            world: {
+                dockX: 0,
+                dockWidth: 320,
+                waterLevel: 0,
+                timeOfDay: 8 * 60, // 08:00 AM (in minutes, 0-1440)
+                dayCount: 1
+            },
+            weapons: [
+                { id: 'rod', name: 'Fishing Rod', type: 'rod', ammo: -1, maxAmmo: -1, unlocked: true },
+                { id: 'pistol', name: '9mm Pistol', type: 'gun', ammo: 12, maxAmmo: 12, damage: 30, fireRate: 250, lastShot: 0, unlocked: false, price: 100 },
+                { id: 'shotgun', name: 'Pump Shotgun', type: 'gun', ammo: 6, maxAmmo: 6, damage: 18, fireRate: 650, lastShot: 0, unlocked: false, price: 250 },
+                { id: 'sniper', name: 'Sniper Rifle', type: 'gun', ammo: 4, maxAmmo: 4, damage: 120, fireRate: 1000, lastShot: 0, unlocked: false, price: 500 }
+            ],
+            rodLevel: 1,
+            stats: {
+                fishCaught: 0,
+                monstersKilled: 0
+            },
+            keys: {},
+            mouse: { x: 0, y: 0, down: false },
+            bobber: null, // { x, y, vx, vy, state: 'flying'|'water'|'hooked' }
+            reelGame: {
+                active: false,
+                targetPos: 0,
+                indicatorPos: 0,
+                progress: 0,
+                fish: null
+            },
+            bullets: [],
+            enemies: [],
+            particles: [],
+            floatingTexts: [],
+            gameOver: false
+        };
+
+        // Fish Database
+        const FISH_TYPES = [
+            { name: "Soggy Boot", value: 5, color: "#8B4513", rarity: "Junk", diff: 1 },
+            { name: "Blinky Three-Eye", value: 25, color: "#32CD32", rarity: "Common", diff: 1.5 },
+            { name: "Tentacle Carp", value: 60, color: "#9370DB", rarity: "Rare", diff: 2.2 },
+            { name: "Mutant Angler", value: 120, color: "#FF4500", rarity: "Epic", diff: 3.0 },
+            { name: "Leviathan Fry", value: 300, color: "#00FFFF", rarity: "Legendary", diff: 4.2 }
+        ];
+
+        // Shop Items Definitions
+        const SHOP_ITEMS = [
+            { id: 'pistol', name: '9mm Pistol', cost: 100, type: 'weapon' },
+            { id: 'shotgun', name: 'Pump Shotgun', cost: 250, type: 'weapon' },
+            { id: 'sniper', name: 'Sniper Rifle', cost: 500, type: 'weapon' },
+            { id: 'rod_upgrade', name: 'Upgrade Rod Line', cost: 150, type: 'rod' },
+            { id: 'ammo_refill', name: 'Full Ammo Refill', cost: 40, type: 'ammo' },
+            { id: 'health_kit', name: 'Medkit (+50 HP)', cost: 50, type: 'health' }
+        ];
+
+        // --- Inputs Handling ---
+        window.addEventListener('keydown', e => {
+            audio.init();
+            STATE.keys[e.key.toLowerCase()] = true;
+
+            if (e.key === '1') setWeapon(0);
+            if (e.key === '2') setWeapon(1);
+            if (e.key === '3') setWeapon(2);
+            if (e.key === '4') setWeapon(3);
+            if (e.key.toLowerCase() === 'r') reloadWeapon();
+            if (e.key.toLowerCase() === 'e') sellAllFish();
+        });
+
+        window.addEventListener('keyup', e => {
+            STATE.keys[e.key.toLowerCase()] = false;
+        });
+
+        canvas.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            STATE.mouse.x = e.clientX - rect.left;
+            STATE.mouse.y = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('mousedown', e => {
+            audio.init();
+            if (e.button === 0) {
+                STATE.mouse.down = true;
+                handlePrimaryAction();
+            }
+        });
+
+        canvas.addEventListener('mouseup', e => {
+            if (e.button === 0) STATE.mouse.down = false;
+        });
+
+        // UI Event Listeners
+        document.getElementById('sound-btn').addEventListener('click', () => {
+            audio.enabled = !audio.enabled;
+            document.getElementById('sound-icon').className = audio.enabled ? "fa-solid fa-volume-high" : "fa-solid fa-volume-xmark";
+        });
+
+        document.getElementById('shop-btn').addEventListener('click', toggleShop);
+        document.getElementById('close-shop').addEventListener('click', toggleShop);
+        document.getElementById('sell-all-shop-btn').addEventListener('click', sellAllFish);
+        document.getElementById('restart-btn').addEventListener('click', restartGame);
+
+        // --- Weapon & Action Logic ---
+        function setWeapon(index) {
+            if (STATE.weapons[index] && STATE.weapons[index].unlocked) {
+                STATE.player.selectedWeapon = index;
+                // Recall bobber if switching weapons
+                if (index !== 0) STATE.bobber = null;
+                updateWeaponHUD();
+            }
+        }
+
+        function updateWeaponHUD() {
+            const w = STATE.weapons[STATE.player.selectedWeapon];
+            const iconEl = document.getElementById('weapon-icon');
+            const nameEl = document.getElementById('weapon-name');
+            const ammoEl = document.getElementById('ammo-text');
+
+            nameEl.textContent = w.name;
+
+            if (w.type === 'rod') {
+                iconEl.innerHTML = `<i class="fa-solid fa-fish"></i>`;
+                ammoEl.textContent = `Rod Level ${STATE.rodLevel}`;
+            } else {
+                iconEl.innerHTML = `<i class="fa-solid fa-crosshairs"></i>`;
+                ammoEl.textContent = `Ammo: ${w.ammo} / ${w.maxAmmo}`;
+            }
+        }
+
+        function reloadWeapon() {
+            const w = STATE.weapons[STATE.player.selectedWeapon];
+            if (w && w.type === 'gun') {
+                w.ammo = w.maxAmmo;
+                createFloatingText(STATE.player.x, STATE.player.y - 40, "RELOADED!", "#38bdf8");
+                updateWeaponHUD();
+            }
+        }
+
+        function handlePrimaryAction() {
+            if (STATE.gameOver) return;
+            const w = STATE.weapons[STATE.player.selectedWeapon];
+
+            if (w.type === 'rod') {
+                // Casting Fishing Line
+                if (!STATE.bobber) {
+                    if (STATE.mouse.x > STATE.world.dockWidth + 20) {
+                        STATE.bobber = {
+                            x: STATE.player.x + 15,
+                            y: STATE.player.y,
+                            vx: (STATE.mouse.x - STATE.player.x) * 0.04,
+                            vy: (STATE.mouse.y - STATE.player.y) * 0.04 - 3,
+                            state: 'flying'
+                        };
+                    }
+                } else if (STATE.bobber.state === 'water') {
+                    // Pull back empty
+                    STATE.bobber = null;
+                }
+            } else if (w.type === 'gun') {
+                // Shoot weapon
+                const now = Date.now();
+                if (now - w.lastShot >= w.fireRate) {
+                    if (w.ammo > 0) {
+                        w.ammo--;
+                        w.lastShot = now;
+                        audio.playShoot(w.id);
+                        fireGun(w);
+                        updateWeaponHUD();
+                    } else {
+                        createFloatingText(STATE.player.x, STATE.player.y - 40, "NO AMMO! (R)", "#ef4444");
+                    }
+                }
+            }
+        }
+
+        function fireGun(weapon) {
+            const originX = STATE.player.x + 15;
+            const originY = STATE.player.y - 15;
+            const angle = Math.atan2(STATE.mouse.y - originY, STATE.mouse.x - originX);
+
+            if (weapon.id === 'pistol') {
+                STATE.bullets.push({
+                    x: originX, y: originY,
+                    vx: Math.cos(angle) * 12, vy: Math.sin(angle) * 12,
+                    damage: weapon.damage, range: 600
+                });
+            } else if (weapon.id === 'shotgun') {
+                // Spread of 5 pellets
+                for (let i = -2; i <= 2; i++) {
+                    const spreadAngle = angle + (i * 0.08);
+                    STATE.bullets.push({
+                        x: originX, y: originY,
+                        vx: Math.cos(spreadAngle) * 10, vy: Math.sin(spreadAngle) * 10,
+                        damage: weapon.damage, range: 400
+                    });
+                }
+            } else if (weapon.id === 'sniper') {
+                STATE.bullets.push({
+                    x: originX, y: originY,
+                    vx: Math.cos(angle) * 22, vy: Math.sin(angle) * 22,
+                    damage: weapon.damage, range: 1000
+                });
+            }
+        }
+
+        // --- Reel Minigame Logic ---
+        function updateReelMinigame() {
+            if (!STATE.reelGame.active) return;
+
+            const target = document.getElementById('reel-target');
+            const indicator = document.getElementById('reel-indicator');
+            const progress = document.getElementById('reel-progress');
+
+            // Move target randomly
+            STATE.reelGame.targetPos += (Math.random() - 0.5) * 4;
+            STATE.reelGame.targetPos = Math.max(10, Math.min(80, STATE.reelGame.targetPos));
+
+            // Move indicator based on user input (space/click)
+            if (STATE.keys[' '] || STATE.mouse.down) {
+                STATE.reelGame.indicatorPos += 2.5;
+            } else {
+                STATE.reelGame.indicatorPos -= 2.0;
+            }
+            STATE.reelGame.indicatorPos = Math.max(0, Math.min(100, STATE.reelGame.indicatorPos));
+
+            // Check if inside target area
+            const inZone = Math.abs(STATE.reelGame.indicatorPos - STATE.reelGame.targetPos) < 15;
+            if (inZone) {
+                STATE.reelGame.progress += 0.8 / STATE.reelGame.fish.diff;
+            } else {
+                STATE.reelGame.progress -= 0.5;
+            }
+            STATE.reelGame.progress = Math.max(0, Math.min(100, STATE.reelGame.progress));
+
+            // DOM Updates
+            target.style.left = `${STATE.reelGame.targetPos}%`;
+            indicator.style.left = `${STATE.reelGame.indicatorPos}%`;
+            progress.style.width = `${STATE.reelGame.progress}%`;
+
+            // Win / Lose Conditions
+            if (STATE.reelGame.progress >= 100) {
+                // Catch fish!
+                const caught = STATE.reelGame.fish;
+                STATE.player.inventory.push(caught);
+                STATE.stats.fishCaught++;
+                STATE.bobber = null;
+                STATE.reelGame.active = false;
+                document.getElementById('reel-minigame').classList.add('hidden');
+                audio.playCatch();
+                createFloatingText(STATE.player.x, STATE.player.y - 50, `CAUGHT ${caught.name.toUpperCase()}!`, caught.color);
+            } else if (STATE.reelGame.progress <= 0 && !inZone) {
+                // Failed reel
+                STATE.bobber = null;
+                STATE.reelGame.active = false;
+                document.getElementById('reel-minigame').classList.add('hidden');
+                createFloatingText(STATE.player.x, STATE.player.y - 50, "FISH ESCAPED!", "#ef4444");
+            }
+        }
+
+        // --- Spawning Enemies & World Dynamics ---
+        function spawnEnemies() {
+            if (STATE.gameOver) return;
+
+            // Spawn frequency increases at night (between 18:00 - 06:00)
+            const hour = Math.floor(STATE.world.timeOfDay / 60);
+            const isNight = hour >= 18 || hour < 6;
+            const spawnChance = isNight ? 0.025 : 0.008;
+
+            if (Math.random() < spawnChance) {
+                const type = Math.random() > 0.4 ? 'flying' : 'aquatic';
+                if (type === 'flying') {
+                    STATE.enemies.push({
+                        type: 'flying',
+                        x: canvas.width + 30,
+                        y: 80 + Math.random() * 120,
+                        vx: -1.8 - Math.random(),
+                        vy: 0,
+                        hp: 35, maxHp: 35,
+                        damage: 12
+                    });
+                } else {
+                    STATE.enemies.push({
+                        type: 'aquatic',
+                        x: STATE.world.dockWidth + 100 + Math.random() * 300,
+                        y: STATE.world.waterLevel + 40,
+                        vx: -1.2,
+                        vy: 0,
+                        hp: 60, maxHp: 60,
+                        damage: 18
+                    });
+                }
+            }
+        }
+
+        // --- Main Game Loop ---
+        function update() {
+            if (STATE.gameOver) return;
+
+            // 1. Time & Day/Night Cycle
+            STATE.world.timeOfDay += 0.1; // 1 min per 10 frames
+            if (STATE.world.timeOfDay >= 1440) {
+                STATE.world.timeOfDay = 0;
+                STATE.world.dayCount++;
+            }
+
+            // Update UI Day/Time Text
+            const hrs = Math.floor(STATE.world.timeOfDay / 60);
+            const mins = Math.floor(STATE.world.timeOfDay % 60);
+            const ampm = hrs >= 12 ? 'PM' : 'AM';
+            const displayHrs = hrs % 12 === 0 ? 12 : hrs % 12;
+            document.getElementById('time-display').textContent = `${String(displayHrs).padStart(2,'0')}:${String(mins).padStart(2,'0')} ${ampm}`;
+            document.getElementById('day-display').textContent = `(Day ${STATE.world.dayCount})`;
+
+            // 2. Player Movement
+            STATE.world.waterLevel = canvas.height - 180;
+            const dockY = STATE.world.waterLevel - 30;
+            STATE.player.y = dockY;
+
+            if (STATE.keys['a'] || STATE.keys['arrowleft']) {
+                STATE.player.x = Math.max(20, STATE.player.x - STATE.player.speed);
+            }
+            if (STATE.keys['d'] || STATE.keys['arrowright']) {
+                STATE.player.x = Math.min(STATE.world.dockWidth - 40, STATE.player.x + STATE.player.speed);
+            }
+
+            // 3. Update Bobber & Fishing Physics
+            if (STATE.bobber) {
+                if (STATE.bobber.state === 'flying') {
+                    STATE.bobber.x += STATE.bobber.vx;
+                    STATE.bobber.y += STATE.bobber.vy;
+                    STATE.bobber.vy += 0.25; // gravity
+
+                    if (STATE.bobber.y >= STATE.world.waterLevel) {
+                        STATE.bobber.y = STATE.world.waterLevel;
+                        STATE.bobber.state = 'water';
+                        STATE.bobber.timer = 0;
+                    }
+                } else if (STATE.bobber.state === 'water') {
+                    STATE.bobber.timer++;
+                    STATE.bobber.y = STATE.world.waterLevel + Math.sin(Date.now() * 0.005) * 3;
+
+                    // Fish bite chance
+                    if (STATE.bobber.timer > 120 && Math.random() < 0.01) {
+                        STATE.bobber.state = 'hooked';
+                        // Pick random fish
+                        const fish = FISH_TYPES[Math.floor(Math.random() * FISH_TYPES.length)];
+                        STATE.reelGame = {
+                            active: true,
+                            targetPos: 50,
+                            indicatorPos: 50,
+                            progress: 30,
+                            fish: fish
+                        };
+                        document.getElementById('reel-minigame').classList.remove('hidden');
+                    }
+                }
+            }
+
+            // 4. Update Bullets
+            for (let i = STATE.bullets.length - 1; i >= 0; i--) {
+                const b = STATE.bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+                b.range -= Math.hypot(b.vx, b.vy);
+
+                if (b.range <= 0 || b.x < 0 || b.x > canvas.width || b.y > canvas.height) {
+                    STATE.bullets.splice(i, 1);
+                    continue;
+                }
+
+                // Check collisions with enemies
+                for (let j = STATE.enemies.length - 1; j >= 0; j--) {
+                    const e = STATE.enemies[j];
+                    if (Math.hypot(b.x - e.x, b.y - e.y) < 25) {
+                        e.hp -= b.damage;
+                        createParticles(b.x, b.y, "#ef4444", 4);
+                        STATE.bullets.splice(i, 1);
+
+                        if (e.hp <= 0) {
+                            STATE.stats.monstersKilled++;
+                            STATE.player.gold += e.type === 'flying' ? 20 : 35;
+                            document.getElementById('gold-display').textContent = STATE.player.gold;
+                            createFloatingText(e.x, e.y, `+${e.type === 'flying' ? 20 : 35}🪙`, "#eab308");
+                            STATE.enemies.splice(j, 1);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // 5. Update Enemies
+            spawnEnemies();
+            for (let i = STATE.enemies.length - 1; i >= 0; i--) {
+                const e = STATE.enemies[i];
+                if (e.type === 'flying') {
+                    e.x += e.vx;
+                    e.y += Math.sin(Date.now() * 0.003) * 0.8;
+                } else if (e.type === 'aquatic') {
+                    if (e.x > STATE.world.dockWidth - 20) {
+                        e.x += e.vx;
+                    } else {
+                        // Attack dock
+                        e.y = STATE.world.waterLevel - 10;
+                    }
+                }
+
+                // Attack player
+                if (Math.hypot(e.x - STATE.player.x, e.y - STATE.player.y) < 35) {
+                    STATE.player.hp -= e.damage * 0.03; // Continuous damage on touch
+                    audio.playHit();
+                    if (STATE.player.hp <= 0) {
+                        STATE.player.hp = 0;
+                        triggerGameOver();
+                    }
+                }
+
+                // Remove out-of-bounds enemies
+                if (e.x < -50) STATE.enemies.splice(i, 1);
+            }
+
+            // Update Particle FX & Floating Texts
+            updateParticles();
+            updateReelMinigame();
+
+            // Sync UI HP Bar
+            document.getElementById('hp-bar').style.width = `${(STATE.player.hp / STATE.player.maxHp) * 100}%`;
+            document.getElementById('hp-text').textContent = `${Math.ceil(STATE.player.hp)}/${STATE.player.maxHp}`;
+            document.getElementById('gold-display').textContent = STATE.player.gold;
+        }
+
+        // --- Rendering ---
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Render Sky & Day/Night Gradient
+            const hrs = STATE.world.timeOfDay / 60;
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+
+            if (hrs >= 6 && hrs < 18) {
+                // Daytime
+                skyGrad.addColorStop(0, '#0284c7');
+                skyGrad.addColorStop(0.7, '#7dd3fc');
+            } else if (hrs >= 18 && hrs < 20) {
+                // Sunset
+                skyGrad.addColorStop(0, '#4c1d95');
+                skyGrad.addColorStop(0.5, '#c2410c');
+                skyGrad.addColorStop(1, '#f59e0b');
+            } else {
+                // Night
+                skyGrad.addColorStop(0, '#090d16');
+                skyGrad.addColorStop(1, '#1e1b4b');
+            }
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Sun / Moon
+            ctx.fillStyle = (hrs >= 6 && hrs < 18) ? '#fef08a' : '#f1f5f9';
+            ctx.beginPath();
+            const astroX = (STATE.world.timeOfDay / 1440) * canvas.width;
+            ctx.arc(astroX, 80, (hrs >= 6 && hrs < 18) ? 30 : 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 2. Render Dock & Shoreline
+            ctx.fillStyle = '#451a03'; // Wooden Dock
+            ctx.fillRect(STATE.world.dockX, STATE.world.waterLevel - 15, STATE.world.dockWidth, 20);
+            // Dock Support Pilings
+            ctx.fillStyle = '#27272a';
+            for (let x = 30; x < STATE.world.dockWidth; x += 60) {
+                ctx.fillRect(x, STATE.world.waterLevel - 15, 12, canvas.height - STATE.world.waterLevel + 15);
+            }
+
+            // 3. Render Water
+            ctx.fillStyle = (hrs >= 6 && hrs < 18) ? 'rgba(14, 116, 144, 0.85)' : 'rgba(8, 47, 73, 0.92)';
+            ctx.fillRect(STATE.world.dockWidth, STATE.world.waterLevel, canvas.width - STATE.world.dockWidth, canvas.height - STATE.world.waterLevel);
+
+            // Water Waves Surface
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let x = STATE.world.dockWidth; x < canvas.width; x += 20) {
+                ctx.lineTo(x, STATE.world.waterLevel + Math.sin((x + Date.now() * 0.05) * 0.05) * 3);
+            }
+            ctx.stroke();
+
+            // 4. Render Player
+            const px = STATE.player.x;
+            const py = STATE.player.y;
+
+            // Player Body
+            ctx.fillStyle = '#ea580c'; // Vest
+            ctx.fillRect(px - 10, py - 35, 20, 25);
+            ctx.fillStyle = '#fde047'; // Head
+            ctx.beginPath();
+            ctx.arc(px, py - 42, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Render Weapon/Rod in Hands
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(px, py - 25);
+            ctx.lineTo(STATE.mouse.x, STATE.mouse.y);
+            // Limit line length for weapons
+            if (STATE.weapons[STATE.player.selectedWeapon].type === 'gun') {
+                const angle = Math.atan2(STATE.mouse.y - (py - 25), STATE.mouse.x - px);
+                ctx.clearRect(0, 0, 0, 0); // Reset
+                ctx.beginPath();
+                ctx.moveTo(px, py - 25);
+                ctx.lineTo(px + Math.cos(angle) * 25, (py - 25) + Math.sin(angle) * 25);
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 4;
+            }
+            ctx.stroke();
+
+            // 5. Render Fishing Line & Bobber
+            if (STATE.bobber) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(px, py - 25);
+                ctx.lineTo(STATE.bobber.x, STATE.bobber.y);
+                ctx.stroke();
+
+                // Bobber Icon
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(STATE.bobber.x, STATE.bobber.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 6. Render Bullets
+            ctx.fillStyle = '#facc15';
+            STATE.bullets.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // 7. Render Enemies
+            STATE.enemies.forEach(e => {
+                ctx.fillStyle = e.type === 'flying' ? '#a855f7' : '#22c55e';
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.type === 'flying' ? 14 : 18, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Enemy HP Bar
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(e.x - 15, e.y - 25, 30, 4);
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(e.x - 15, e.y - 25, (e.hp / e.maxHp) * 30, 4);
+            });
+
+            // 8. Render Particles & Floating Texts
+            renderParticles();
+            renderFloatingTexts();
+        }
+
+        // --- Particle & FX Engine ---
+        function createParticles(x, y, color, count = 6) {
+            for (let i = 0; i < count; i++) {
+                STATE.particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    color,
+                    life: 1.0
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = STATE.particles.length - 1; i >= 0; i--) {
+                const p = STATE.particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.05;
+                if (p.life <= 0) STATE.particles.splice(i, 1);
+            }
+        }
+
+        function renderParticles() {
+            STATE.particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.fillRect(p.x, p.y, 3, 3);
+                ctx.globalAlpha = 1.0;
+            });
+        }
+
+        function createFloatingText(x, y, text, color = "#ffffff") {
+            STATE.floatingTexts.push({ x, y, text, color, life: 1.0 });
+        }
+
+        function renderFloatingTexts() {
+            for (let i = STATE.floatingTexts.length - 1; i >= 0; i--) {
+                const ft = STATE.floatingTexts[i];
+                ft.y -= 0.8;
+                ft.life -= 0.02;
+
+                ctx.font = 'bold 12px monospace';
+                ctx.fillStyle = ft.color;
+                ctx.globalAlpha = ft.life;
+                ctx.fillText(ft.text, ft.x - 20, ft.y);
+                ctx.globalAlpha = 1.0;
+
+                if (ft.life <= 0) STATE.floatingTexts.splice(i, 1);
+            }
+        }
+
+        // --- Shop & Inventory Systems ---
+        function toggleShop() {
+            const modal = document.getElementById('shop-modal');
+            const isHidden = modal.classList.contains('hidden');
+            if (isHidden) {
+                renderShopItems();
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function renderShopItems() {
+            const list = document.getElementById('shop-items-list');
+            document.getElementById('shop-gold-display').textContent = STATE.player.gold;
+            list.innerHTML = '';
+
+            SHOP_ITEMS.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center bg-gray-800 p-3 rounded border border-gray-700";
+
+                let actionBtn = '';
+                if (item.type === 'weapon') {
+                    const w = STATE.weapons.find(x => x.id === item.id);
+                    if (w.unlocked) {
+                        actionBtn = `<span class="text-xs text-gray-500 font-bold">OWNED</span>`;
+                    } else {
+                        actionBtn = `<button onclick="buyShopItem('${item.id}')" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1 rounded text-xs">Buy (${item.cost}🪙)</button>`;
+                    }
+                } else {
+                    actionBtn = `<button onclick="buyShopItem('${item.id}')" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1 rounded text-xs">Buy (${item.cost}🪙)</button>`;
+                }
+
+                div.innerHTML = `
+                    <div>
+                        <div class="font-bold text-gray-200">${item.name}</div>
+                        <div class="text-xs text-gray-400">Upgrade dock capabilities & survival</div>
+                    </div>
+                    ${actionBtn}
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        window.buyShopItem = function(id) {
+            const item = SHOP_ITEMS.find(x => x.id === id);
+            if (!item || STATE.player.gold < item.cost) {
+                alert("Not enough gold!");
+                return;
+            }
+
+            if (item.type === 'weapon') {
+                const w = STATE.weapons.find(x => x.id === id);
+                w.unlocked = true;
+                STATE.player.gold -= item.cost;
+            } else if (item.id === 'rod_upgrade') {
+                STATE.rodLevel++;
+                STATE.player.gold -= item.cost;
+            } else if (item.id === 'ammo_refill') {
+                STATE.weapons.forEach(w => { if (w.type === 'gun') w.ammo = w.maxAmmo; });
+                STATE.player.gold -= item.cost;
+                updateWeaponHUD();
+            } else if (item.id === 'health_kit') {
+                STATE.player.hp = Math.min(STATE.player.maxHp, STATE.player.hp + 50);
+                STATE.player.gold -= item.cost;
+            }
+
+            renderShopItems();
+        };
+
+        function sellAllFish() {
+            if (STATE.player.inventory.length === 0) return;
+            let total = 0;
+            STATE.player.inventory.forEach(f => total += f.value);
+            STATE.player.gold += total;
+            createFloatingText(STATE.player.x, STATE.player.y - 40, `+$${total} SOLD!`, "#22c55e");
+            STATE.player.inventory = [];
+            document.getElementById('gold-display').textContent = STATE.player.gold;
+            document.getElementById('shop-gold-display').textContent = STATE.player.gold;
+        }
+
+        // --- Game Over & Restart ---
+        function triggerGameOver() {
+            STATE.gameOver = true;
+            document.getElementById('go-days').textContent = STATE.world.dayCount;
+            document.getElementById('go-fish').textContent = STATE.stats.fishCaught;
+            document.getElementById('go-kills').textContent = STATE.stats.monstersKilled;
+            document.getElementById('gameover-modal').classList.remove('hidden');
+        }
+
+        function restartGame() {
+            STATE.player.hp = 100;
+            STATE.player.gold = 50;
+            STATE.player.inventory = [];
+            STATE.world.dayCount = 1;
+            STATE.world.timeOfDay = 8 * 60;
+            STATE.enemies = [];
+            STATE.bullets = [];
+            STATE.stats.fishCaught = 0;
+            STATE.stats.monstersKilled = 0;
+            STATE.gameOver = false;
+            document.getElementById('gameover-modal').classList.add('hidden');
+        }
+
+        // --- Core Loop Initialization ---
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = () => {
+            updateWeaponHUD();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
