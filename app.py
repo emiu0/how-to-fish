@@ -2,142 +2,141 @@ import random
 import time
 import streamlit as st
 
-st.set_page_config(page_title="How to Fish - Trò chơi câu cá", page_icon="🎣", layout="centered")
+st.set_page_config(page_title="How to Fish - Phiên bản Bá Đạo", page_icon="🎣", layout="centered")
 
-# --- 1. KHỞI TẠO TRẠNG THÁI GAME (SESSION STATE) ---
+# --- 1. KHỞI TẠO TRẠNG THÁI GAME ---
 if "money" not in st.session_state:
-    st.session_state.money = 100
-    st.session_state.rod_level = 1  # Cấp độ cần câu
-    st.session_state.inventory = []  # Danh sách cá đã bắt
-    st.session_state.game_state = "IDLE"  # IDLE, CASTING, BITE, REELING
-    st.session_state.current_fish = None
-    st.session_state.tension = 50  # Độ căng dây câu (0 - 100)
+    st.session_state.money = 150
+    st.session_state.gear_level = 1  # 1: Cần câu tre, 2: Súng lục săn cá, 3: Súng ngắm đại dương
+    st.session_state.inventory = []
+    st.session_state.game_state = "IDLE"  # IDLE, FISHING, ACTION
+    st.session_state.current_target = None
 
-# Danh sách các loại cá tương ứng với cấp độ cần câu
-FISH_DATABASE = {
-    1: [
-        {"name": "🐟 Cá Rô Phi", "value": 20, "difficulty": 30, "rarity": "Thường"},
-        {"name": "🐠 Cá Cảnh Nhỏ", "value": 35, "difficulty": 45, "rarity": "Thường"},
-        {"name": "🦐 Tôm Sông", "value": 15, "difficulty": 20, "rarity": "Thường"}
-    ],
-    2: [
-        {"name": "🐟 Cá Rô Phi", "value": 20, "difficulty": 30, "rarity": "Thường"},
-        {"name": "🦈 Cá Hồi", "value": 80, "difficulty": 60, "rarity": "Hiếm"},
-        {"name": "🐙 Bạch Tuộc Nhỏ", "value": 120, "difficulty": 75, "rarity": "Hiếm"}
-    ],
-    3: [
-        {"name": "🦈 Cá Hồi", "value": 80, "difficulty": 60, "rarity": "Hiếm"},
-        {"name": "🐋 Cá Ngừ Đại Dương", "value": 300, "difficulty": 85, "rarity": "Cực Hiếm"},
-        {"name": "🐉 Cá Mập Trắng", "value": 600, "difficulty": 95, "rarity": "Huyền Thoại"}
-    ]
+# Danh sách trang bị và vũ khí câu cá
+GEARS = {
+    1: {"name": "🎋 Cần câu tre truyền thống", "cost": 0, "power": 1},
+    2: {"name": "🔫 Súng lục săn cá (Pistol)", "cost": 300, "power": 3},
+    3: {"name": "🎯 Súng ngắm săn cá mập (Sniper)", "cost": 1000, "power": 5}
 }
 
-# --- 2. GIAO DIỆN CHÍNH (HEADER & THÔNG SỐ) ---
-st.title("🎣 HOW TO FISH - Game Câu Cá Ảo")
-st.markdown("Hành trình trở thành vua câu cá từ bờ hồ đến đại dương!")
+# Cơ sở dữ liệu cá và quái vật biển
+FISH_DB = [
+    {"name": "🐟 Cá Rô Phi ngơ ngác", "value": 30, "chance": 50, "type": "Thường"},
+    {"name": "🐠 Cá hề đột biến", "value": 60, "chance": 35, "type": "Hiếm"},
+    {"name": "🦈 Cá mập hung tợn", "value": 200, "chance": 12, "type": "Cực Hiếm"},
+    {"name": "🐉 Thủy quái hồ sâu (Boss)", "value": 600, "chance": 3, "type": "Huyền Thoại"}
+]
 
-# Hiển thị thông tin người chơi ở sidebar hoặc khung trên
+# --- 2. GIAO DIỆN CHÍNH ---
+st.title("🎣 HOW TO FISH: Bản Săn Cá Bá Đạo")
+st.markdown("*(Không chỉ là câu cá, đây là sinh tồn!)*")
+
+# Bảng thông tin người chơi
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.metric("💰 Tiền (Vàng)", f"{st.session_state.money} 🪙")
+    st.metric("💰 Tiền thưởng", f"{st.session_state.money} 🪙")
 with col2:
-    st.metric("🎣 Cấp Cần Câu", f"Cấp {st.session_state.rod_level}")
+    current_gear = GEARS[st.session_state.gear_level]["name"]
+    st.metric("🛠️ Trang bị hiện tại", current_gear)
 with col3:
-    st.metric("🎒 Số cá trong kho", len(st.session_state.inventory))
+    st.metric("🎒 Kho chiến lợi phẩm", len(st.session_state.inventory))
 
 st.markdown("---")
 
-# --- 3. KHU VỰC ĐIỀU KHIỂN & GAMEPLAY ---
+# --- 3. KHU VỰC HÀNH ĐỘNG ---
 
-# Trạng thái 1: Đang ở bờ hồ / chờ quăng cần
 if st.session_state.game_state == "IDLE":
-    st.subheader("🌅 Bạn đang đứng ở bờ hồ yên bình...")
-    st.write("Hãy nhấn nút bên dưới để quăng cần câu xuống nước và chờ cá cắn câu nhé!")
-    
-    if st.button("🎣 Quăng Cần Ngay!", use_container_width=True):
-        st.session_state.game_state = "BITE"
-        st.rerun()
-
-# Trạng thái 2: Chờ cá cắn câu
-elif st.session_state.game_state == "BITE":
-    st.info("🌊 Phao đang nổi trên mặt nước... Đang đợi cá cắn câu...")
-    
-    # Giả lập thời gian chờ cá cắn ngẫu nhiên
-    time.sleep(1.5)
-    
-    # Chọn ngẫu nhiên loại cá dựa trên cấp cần câu hiện tại
-    available_fish = FISH_DATABASE.get(st.session_state.rod_level, FISH_DATABASE[1])
-    st.session_state.current_fish = random.choice(available_fish)
-    
-    st.session_state.game_state = "REELING"
-    st.rerun()
-
-# Trạng thái 3: Kéo cá lên (Reeling Minigame)
-elif st.session_state.game_state == "REELING":
-    fish = st.session_state.current_fish
-    st.warning(f"⚠️ **CÓ CÁ CẮN CÂU!** Đây là **{fish['name']}** (Độ hiếm: {fish['rarity']})")
-    st.write("Hãy điều chỉnh lực kéo để giữ dây không bị đứt hoặc để cá sổng mất!")
-    
-    # Thanh trượt mô phỏng độ căng dây (Người chơi phải giữ ở khoảng an toàn từ 40 đến 70)
-    pull_force = st.slider("Độ kéo dây (Cố gắng giữ vùng an toàn 40-70):", 0, 100, 50)
+    st.subheader("🌅 Bạn đã sẵn sàng ra khơi chưa?")
+    st.write("Chọn phương thức tác chiến bên dưới để bắt đầu kiếm tiền và săn những con cá độc lạ:")
     
     col_a, col_b = st.columns(2)
     with col_a:
-        if st.button("🎯 Giữ & Kéo!", use_container_width=True):
-            # Kiểm tra độ căng dây so với độ khó của cá
-            target_diff = fish["difficulty"]
-            if abs(pull_force - target_diff) <= 15:
-                st.success(f"🎉 Chúc mừng! Bạn đã kéo thành công **{fish['name']}**!")
-                st.session_state.money += fish["value"]
-                st.session_state.inventory.append(fish["name"])
-                st.session_state.game_state = "IDLE"
-                st.balloons()
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.error("💥 Dây câu bị căng quá hoặc chùng quá! Cá đã xổng mất rồi!")
-                st.session_state.game_state = "IDLE"
-                time.sleep(1)
-                st.rerun()
-                
-    with col_b:
-        if st.button("❌ Cắt dây chạy trốn", use_container_width=True):
-            st.warning("Bạn đã cắt dây để bảo toàn lực.")
-            st.session_state.game_state = "IDLE"
+        if st.button("🎣 Đi câu cá thư giãn", use_container_width=True):
+            st.session_state.game_state = "FISHING"
             st.rerun()
+    with col_b:
+        if st.session_state.gear_level > 1:
+            if st.button("💥 Dùng vũ khí săn cá tốc độ cao", use_container_width=True):
+                st.session_state.game_state = "ACTION"
+                st.rerun()
+        else:
+            st.info("🔒 Cần nâng cấp lên Súng để mở khóa chế độ hành động!")
 
-# --- 4. CỬA HÀNG NÂNG CẤP (SHOP) ---
+elif st.session_state.game_state == "FISHING":
+    st.info("🌊 Đang thả mồi chờ cá cắn câu...")
+    time.sleep(1.2)
+    
+    # Random tỷ lệ bắt cá dựa trên cấp độ trang bị
+    roll = random.randint(1, 100)
+    gear_bonus = GEARS[st.session_state.gear_level]["power"] * 3
+    
+    if roll <= 50 - gear_bonus:
+        fish = FISH_DB[0]
+    elif roll <= 85 - gear_bonus:
+        fish = FISH_DB[1]
+    elif roll <= 97:
+        fish = FISH_DB[2]
+    else:
+        fish = FISH_DB[3]
+        
+    st.session_state.current_target = fish
+    st.session_state.game_state = "RESULT"
+    st.rerun()
+
+elif st.session_state.game_state == "ACTION":
+    st.warning("🎯 Phát hiện động tĩnh lớn dưới mặt nước! Ngắm và bóp cò ngay!")
+    time.sleep(1)
+    
+    # Chế độ dùng súng dễ bắt cá to hơn
+    fish = random.choice(FISH_DB[1:]) # Ưu đãi cá to
+    st.session_state.current_target = fish
+    st.session_state.game_state = "RESULT"
+    st.rerun()
+
+elif st.session_state.game_state == "RESULT":
+    fish = st.session_state.current_target
+    st.success(f"🎉 Bạn đã tóm gọn: **{fish['name']}** (Loại: {fish['type']})!")
+    st.write(f"Giá trị quy đổi: **+{fish['value']} 🪙**")
+    
+    st.session_state.money += fish["value"]
+    st.session_state.inventory.append(fish["name"])
+    
+    if st.button("🔄 Tiếp tục hành trình", use_container_width=True):
+        st.session_state.game_state = "IDLE"
+        st.rerun()
+
+# --- 4. CỬA HÀNG NÂNG CẤP VŨ KHÍ & CẦN CÂU ---
 st.markdown("---")
-st.subheader("🛒 Cửa Hàng Nâng Cấp Cần Câu")
+st.subheader("🛒 Cửa Hàng Vũ Khí & Dụng Cụ")
 
-col_shop1, col_shop2 = st.columns(2)
+c1, c2 = st.columns(2)
 
-with col_shop1:
-    st.write("**Cần câu Cấp 2** (Mở khóa cá Hiếm)")
-    st.write("Giá: **150 🪙**")
-    if st.session_state.rod_level < 2:
-        if st.button("Nâng cấp Cần Cấp 2"):
-            if st.session_state.money >= 150:
-                st.session_state.money -= 150
-                st.session_state.rod_level = 2
-                st.success("Nâng cấp thành công cần câu Cấp 2!")
+with c1:
+    st.write("**🔫 Súng lục săn cá (Cấp 2)**")
+    st.write("Giá: **300 🪙** - Tăng tỷ lệ gặp cá lớn.")
+    if st.session_state.gear_level < 2:
+        if st.button("Mua Súng Lục"):
+            if st.session_state.money >= 300:
+                st.session_state.money -= 300
+                st.session_state.gear_level = 2
+                st.success("Đã mua Súng Lục thành công!")
                 st.rerun()
             else:
-                st.error("Bạn không đủ tiền!")
+                st.error("Không đủ tiền!")
     else:
-        st.info("Đã sở hữu")
+        st.info("Đã sở hữu ✅")
 
-with col_shop2:
-    st.write("**Cần câu Cấp 3** (Mở khóa cá Huyền Thoại)")
-    st.write("Giá: **500 🪙**")
-    if st.session_state.rod_level < 3:
-        if st.button("Nâng cấp Cần Cấp 3"):
-            if st.session_state.money >= 500:
-                st.session_state.money -= 500
-                st.session_state.rod_level = 3
-                st.success("Nâng cấp thành công cần câu Cấp 3!")
+with c2:
+    st.write("**🎯 Súng ngắm đại dương (Cấp 3)**")
+    st.write("Giá: **1000 🪙** - Săn boss và cá khổng lồ.")
+    if st.session_state.gear_level < 3:
+        if st.button("Mua Súng Ngắm"):
+            if st.session_state.money >= 1000:
+                st.session_state.money -= 1000
+                st.session_state.gear_level = 3
+                st.success("Đã mua Súng Ngắm thành công!")
                 st.rerun()
             else:
-                st.error("Bạn không đủ tiền!")
+                st.error("Không đủ tiền!")
     else:
-        st.info("Đã sở hữu")
+        st.info("Đã sở hữu ✅")
