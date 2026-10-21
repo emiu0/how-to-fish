@@ -1,26 +1,26 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Cấu hình giao diện Streamlit full màn hình
+# Cấu hình trang Streamlit full màn hình
 st.set_page_config(
-    page_title="How to Fish - 3D Survival Edition",
+    page_title="How to Catch Fish 3D",
     page_icon="🎣",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Ẩn hoàn toàn header và footer mặc định của Streamlit
+# Xóa lề mặc định
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .block-container {padding: 0rem !important;}
-    body { overflow: hidden; background-color: #040914; }
+    body { overflow: hidden; background-color: #040914; margin: 0; }
     </style>
 """, unsafe_allow_html=True)
 
-# Mã nguồn HTML5 + Three.js 3D Game mô phỏng chính xác tựa game How to Fish
+# Mã nguồn HTML5 + Three.js 3D Game tích hợp trực tiếp
 game_code = """
 <!DOCTYPE html>
 <html lang="vi">
@@ -32,7 +32,7 @@ game_code = """
         body, html { width: 100%; height: 100%; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #040914; }
         #webgl-container { width: 100vw; height: 100vh; display: block; }
         
-        /* MÀN HÌNH CHÍNH (MAIN MENU) */
+        /* MAIN MENU */
         #mainMenu {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(90deg, rgba(4,9,20,0.95) 0%, rgba(4,9,20,0.5) 50%, rgba(4,9,20,0) 100%);
@@ -48,7 +48,7 @@ game_code = """
         }
         .menu-btn:hover { background: #f6ad55; color: #040914; border-color: #f6ad55; transform: translateX(10px); }
 
-        /* HUD THÔNG SỐ TRONG GAME */
+        /* HUD IN-GAME */
         #hud {
             position: absolute; top: 15px; left: 15px; right: 15px; display: none; justify-content: space-between;
             background: rgba(11, 19, 30, 0.85); padding: 12px 25px; border-radius: 8px; border: 1px solid #1e293b; color: white;
@@ -56,157 +56,125 @@ game_code = """
         }
         .hud-item { display: flex; align-items: center; gap: 8px; font-size: 16px; }
 
-        /* BẢNG HÀNH ĐỘNG / TƯƠNG TÁC */
-        #actionPrompt {
+        /* DIALOG / PROMPT BOX */
+        #promptBox {
             position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
             background: rgba(15, 23, 42, 0.9); color: #38bdf8; padding: 12px 30px; border-radius: 30px;
             border: 2px solid #00d2ff; font-weight: bold; display: none; z-index: 20; text-align: center;
-            box-shadow: 0 0 20px rgba(0, 210, 255, 0.4); animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse { 0% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } 100% { transform: translateX(-50%) scale(1); } }
-
-        /* KHUNG THÔNG BÁO */
-        #msgBox {
-            position: absolute; top: 100px; left: 50%; transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.95); color: #f8fafc; padding: 12px 30px; border-radius: 20px;
-            border: 1px solid #f6ad55; font-weight: bold; display: none; z-index: 30; text-align: center;
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
         }
     </style>
-    <!-- THƯ VIỆN THREE.JS 3D -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
     <div id="webgl-container"></div>
 
-    <!-- MÀN HÌNH CHÍNH -->
+    <!-- MAIN MENU -->
     <div id="mainMenu">
         <div class="game-subtitle">A SURVIVAL FISHING ADVENTURE</div>
-        <div class="game-title">HOW TO<br>FISH</div>
+        <div class="game-title">HOW TO<br>CATCH<br>FISH</div>
         <button class="menu-btn" onclick="startGame()">▶ NEW GAME</button>
         <button class="menu-btn" onclick="startGame()">★ CONTINUE</button>
-        <button class="menu-btn" onclick="alert('Hướng dẫn: Dùng phím W, A, S, D hoặc Mũi Tên để lái thuyền trên biển 3D. Lái sát vào Đảo và bấm [SPACE] để câu cá hoặc bắn quái vật lấy chìa khóa!')">⚙ SETTINGS</button>
+        <button class="menu-btn" onclick="alert('Phím W/A/S/D: Di chuyển\nSPACE: Nhảy\n1: Cần câu / 2: Súng\nE: Nói chuyện NPC / Lên thuyền\nChuột trái: Bắn / Quăng câu')">⚙ SETTINGS</button>
     </div>
 
-    <!-- HUD TRONG GAME -->
+    <!-- HUD -->
     <div id="hud">
-        <div class="hud-item">💰 Vàng: <span id="goldVal">250</span></div>
+        <div class="hud-item">💰 Vàng: <span id="goldVal">200</span></div>
         <div class="hud-item">❤️ HP: <span id="hpVal">100</span></div>
-        <div class="hud-item">🔫 Vũ Khí: <span id="weaponVal">Cần Câu / Súng</span></div>
-        <div class="hud-item">🔑 Chìa Khóa: <span id="keyVal">1/3</span></div>
-        <div class="hud-item">📍 Đảo: <span id="islandVal">Đảo Tân Thủ</span></div>
+        <div class="hud-item">🗡️ Trang bị: <span id="itemVal">Cần câu (1)</span></div>
+        <div class="hud-item">🔑 Chìa khóa: <span id="keyVal">1/3</span></div>
     </div>
 
-    <div id="actionPrompt">Bấm [SPACE] để thả cần câu / Tấn công Boss!</div>
-    <div id="msgBox"></div>
+    <div id="promptBox">Bấm [E] để tương tác</div>
 
 <script>
 let scene, camera, renderer;
-let boat3D, ocean;
-let islands = [];
-let inMenu = true;
+let player, boat, npc;
+let isBoating = false, inMenu = true;
 
-// Trò chơi state
-let gold = 250, hp = 100, boatLevel = 1;
-let keysOwned = [1];
-let currentIslandIdx = 0;
-
-const boatState = { x: 0, z: 0, angle: 0, speed: 0, maxSpeed: 0.5, accel: 0.02, friction: 0.95 };
+let gold = 200, hp = 100, activeItem = "Cần câu";
 const keys = {};
 
-window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if(e.code === 'Digit1') { activeItem = "Cần câu"; updateHUD(); }
+    if(e.code === 'Digit2') { activeItem = "Súng săn (Shotgun)"; updateHUD(); }
+});
 window.addEventListener('keyup', e => keys[e.code] = false);
-
-// --- DỮ LIỆU ĐẢO & BOSS ---
-const islandList = [
-    { name: "Đảo Tân Thủ", x: -50, z: -50, color: 0x15803d, boss: "🦈 Cá Trê Khổng Lồ", keyReq: null, rewardKey: 2 },
-    { name: "Đảo San Hò", x: 60, z: -60, color: 0x0284c7, boss: "🐊 Cá Sấu Nước Mặn", keyReq: 2, rewardKey: 3 },
-    { name: "Đảo Quái Vật", x: 10, z: 80, color: 0xb91c1c, boss: "🐉 Thủy Quái Leviathan", keyReq: 3, rewardKey: 4 }
-];
 
 function init3D() {
     const container = document.getElementById('webgl-container');
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x040914);
-    scene.fog = new THREE.FogExp2(0x040914, 0.006);
+    scene.fog = new THREE.FogExp2(0x040914, 0.005);
 
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 25, 40);
+    camera.position.set(0, 20, 35);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
 
-    // Ánh sáng
-    const ambientLight = new THREE.AmbientLight(0x94a3b8, 0.7);
-    scene.add(ambientLight);
-
-    const dirLight = new THREE.DirectionalLight(0xf8fafc, 1.0);
-    dirLight.position.set(100, 150, 50);
+    // Light
+    const ambLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambLight);
+    const dirLight = new THREE.DirectionalLight(0xffedd5, 1.0);
+    dirLight.position.set(50, 100, 50);
     scene.add(dirLight);
 
-    // Mặt nước biển 3D
-    const oceanGeo = new THREE.PlaneGeometry(600, 600, 32, 32);
-    const oceanMat = new THREE.MeshPhongMaterial({ color: 0x0f172a, shininess: 90, flatShading: true });
-    ocean = new THREE.Mesh(oceanGeo, oceanMat);
+    // Ocean
+    const oceanGeo = new THREE.PlaneGeometry(500, 500);
+    const oceanMat = new THREE.MeshPhongMaterial({ color: 0x0f172a, shininess: 80 });
+    const ocean = new THREE.Mesh(oceanGeo, oceanMat);
     ocean.rotation.x = -Math.PI / 2;
     scene.add(ocean);
 
-    // Tạo các hòn đảo 3D low-poly
-    islandList.forEach((islData, idx) => {
-        const islandGroup = new THREE.Group();
-        islandGroup.position.set(islData.x, 0, islData.z);
+    // Starter Island
+    const islandGeo = new THREE.CylinderGeometry(30, 35, 8, 16);
+    const islandMat = new THREE.MeshLambertMaterial({ color: 0x15803d });
+    const island = new THREE.Mesh(islandGeo, islandMat);
+    island.position.set(0, 3, 0);
+    scene.add(island);
 
-        // Đất đảo
-        const landGeo = new THREE.CylinderGeometry(28, 35, 10, 16);
-        const landMat = new THREE.MeshLambertMaterial({ color: islData.color });
-        const land = new THREE.Mesh(landGeo, landMat);
-        land.position.y = 3;
-        islandGroup.add(land);
-
-        // Cây cối low-poly trên đảo
-        for(let i=0; i<6; i++) {
-            const treeGeo = new THREE.ConeGeometry(3, 10, 5);
-            const treeMat = new THREE.MeshLambertMaterial({ color: 0x14532d });
-            const tree = new THREE.Mesh(treeGeo, treeMat);
-            const angle = Math.random() * Math.PI * 2;
-            const r = Math.random() * 18;
-            tree.position.set(Math.cos(angle)*r, 10, Math.sin(angle)*r);
-            islandGroup.add(tree);
-        }
-
-        scene.add(islandGroup);
-        islands.push({ group: islandGroup, data: islData, radius: 32 });
-    });
-
-    // Tạo Thuyền 3D & Nhân vật Low-poly (phong cách How to Fish)
-    boat3D = new THREE.Group();
-    
-    // Thân thuyền
-    const boatGeo = new THREE.BoxGeometry(4, 2, 10);
-    const boatMat = new THREE.MeshLambertMaterial({ color: 0x7c2d12 });
-    const boatMesh = new THREE.Mesh(boatGeo, boatMat);
-    boatMesh.position.y = 1;
-    boat3D.add(boatMesh);
-
-    // Nhân vật hình nộm (Puppet character trên thuyền)
-    const bodyGeo = new THREE.CylinderGeometry(0.8, 0.8, 4);
-    const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1e3a8a }); // Áo xanh đặc trưng
+    // Player (Low-poly character)
+    player = new THREE.Group();
+    const bodyGeo = new THREE.CylinderGeometry(0.8, 0.8, 3);
+    const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1e3a8a });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.set(0, 3.5, 0);
-    boat3D.add(body);
+    body.position.y = 1.5;
+    player.add(body);
 
-    // Đầu nhân vật
-    const headGeo = new THREE.SphereGeometry(1, 8, 8);
+    const headGeo = new THREE.SphereGeometry(0.8);
     const headMat = new THREE.MeshLambertMaterial({ color: 0xfde047 });
     const head = new THREE.Mesh(headGeo, headMat);
-    head.position.set(0, 6, 0);
-    boat3D.add(head);
+    head.position.y = 3.5;
+    player.add(head);
 
-    boat3D.position.set(0, 0, 0);
-    scene.add(boat3D);
+    player.position.set(0, 7, 0);
+    scene.add(player);
+
+    // Boat
+    boat = new THREE.Group();
+    const boatGeo = new THREE.BoxGeometry(5, 2, 12);
+    const boatMat = new THREE.MeshLambertMaterial({ color: 0x7c2d12 });
+    const boatMesh = new THREE.Mesh(boatGeo, boatMat);
+    boat.add(boatMesh);
+    boat.position.set(15, 1, 15);
+    scene.add(boat);
+
+    // NPC Fisherman Joe
+    npc = new THREE.Group();
+    const npcBody = new THREE.Mesh(bodyGeo, new THREE.MeshLambertMaterial({ color: 0xea580c }));
+    npcBody.position.y = 1.5;
+    npc.add(npcBody);
+    const npcHead = new THREE.Mesh(headGeo, headMat);
+    npcHead.position.y = 3.5;
+    npc.add(npcHead);
+    npc.position.set(-8, 7, 5);
+    scene.add(npc);
 
     window.addEventListener('resize', onWindowResize);
 }
@@ -221,109 +189,63 @@ function startGame() {
     document.getElementById('mainMenu').style.display = 'none';
     document.getElementById('hud').style.display = 'flex';
     inMenu = false;
-    showMsg("⛵ Lái thuyền đến các hòn đảo và tiêu diệt Boss để lấy chìa khóa!");
 }
 
-function showMsg(txt, duration = 3500) {
-    const box = document.getElementById('msgBox');
-    box.innerText = txt;
-    box.style.display = 'block';
-    setTimeout(() => { box.style.display = 'none'; }, duration);
+function updateHUD() {
+    document.getElementById('goldVal').innerText = gold;
+    document.getElementById('hpVal').innerText = hp;
+    document.getElementById('itemVal').innerText = activeItem;
 }
 
-// --- GAME LOOP 3D ---
 function animate() {
     requestAnimationFrame(animate);
 
     if (inMenu) {
-        // Camera xoay quanh cảnh đại dương 3D ở Menu
-        const t = Date.now() * 0.0004;
-        camera.position.x = Math.sin(t) * 70;
-        camera.position.z = Math.cos(t) * 70;
-        camera.position.y = 35;
+        const t = Date.now() * 0.0003;
+        camera.position.x = Math.sin(t) * 60;
+        camera.position.z = Math.cos(t) * 60;
+        camera.position.y = 30;
         camera.lookAt(0, 0, 0);
     } else {
-        // Điều khiển lái thuyền 3D
-        if (keys['KeyW'] || keys['ArrowUp']) boatState.speed = Math.min(boatState.speed + boatState.accel, boatState.maxSpeed);
-        else if (keys['KeyS'] || keys['ArrowDown']) boatState.speed = Math.max(boatState.speed - boatState.accel, -boatState.maxSpeed / 2);
-        else boatState.speed *= boatState.friction;
+        // Player Controls
+        const speed = 0.3;
+        if (keys['KeyW']) player.position.z -= speed;
+        if (keys['KeyS']) player.position.z += speed;
+        if (keys['KeyA']) player.position.x -= speed;
+        if (keys['KeyD']) player.position.x += speed;
 
-        if (keys['KeyA'] || keys['ArrowLeft']) boatState.angle += 0.035;
-        if (keys['KeyD'] || keys['ArrowRight']) boatState.angle -= 0.035;
+        // Jump physics
+        if (keys['Space'] && player.position.y <= 7.1) {
+            player.position.y += 1.5;
+        }
+        if (player.position.y > 7) player.position.y -= 0.08;
 
-        boatState.x += Math.sin(boatState.angle) * boatState.speed;
-        boatState.z += Math.cos(boatState.angle) * boatState.speed;
+        // Camera Follows Player
+        camera.position.x = player.position.x;
+        camera.position.z = player.position.z + 20;
+        camera.position.y = player.position.y + 12;
+        camera.lookAt(player.position.x, player.position.y, player.position.z);
 
-        boat3D.position.x = boatState.x;
-        boat3D.position.z = boatState.z;
-        boat3D.rotation.y = boatState.angle;
+        // Interaction Prompt
+        const prompt = document.getElementById('promptBox');
+        const distToNPC = player.position.distanceTo(npc.position);
+        const distToBoat = player.position.distanceTo(boat.position);
 
-        // Camera đi theo thuyền góc nhìn thứ ba
-        camera.position.x = boatState.x - Math.sin(boatState.angle) * 30;
-        camera.position.z = boatState.z - Math.cos(boatState.angle) * 30;
-        camera.position.y = 18;
-        camera.lookAt(boatState.x, 2, boatState.z);
-
-        // Kiểm tra va chạm gần đảo để câu cá/săn boss
-        let nearIsland = false;
-        islands.forEach((isl, idx) => {
-            const dx = boatState.x - isl.data.x;
-            const dz = boatState.z - isl.data.z;
-            const dist = Math.sqrt(dx*dx + dz*dz);
-
-            if (dist < isl.radius + 6) {
-                nearIsland = true;
-                currentIslandIdx = idx;
-                
-                const promptBox = document.getElementById('actionPrompt');
-                promptBox.style.display = 'block';
-                promptBox.innerText = "⚓ Bấm [SPACE] để săn Boss " + isl.data.boss + " tại " + isl.data.name + "!";
-
-                if (keys['Space']) {
-                    if (isl.data.keyReq && !keysOwned.includes(isl.data.keyReq)) {
-                        showMsg("🔒 Đảo này đã bị khóa! Cần đánh bại Boss ở đảo trước để mở.");
-                    } else {
-                        triggerBossBattle(isl.data);
-                    }
-                }
-            }
-        });
-
-        if (!nearIsland) {
-            document.getElementById('actionPrompt').style.display = 'none';
+        if (distToNPC < 4) {
+            prompt.style.display = 'block';
+            prompt.innerText = "Bấm [E] để nói chuyện với Lão Ngư Joe";
+            if (keys['KeyE']) { alert("Joe: 'Hãy cẩn thận! Ngoài khơi có quái vật biển đấy, nhớ mang theo súng!'"); keys['KeyE'] = false; }
+        } else if (distToBoat < 5) {
+            prompt.style.display = 'block';
+            prompt.innerText = "Bấm [E] để Lên / Lái Thuyền";
+        } else {
+            prompt.style.display = 'none';
         }
     }
-
-    // Cập nhật thông số HUD
-    document.getElementById('goldVal').innerText = gold;
-    document.getElementById('hpVal').innerText = hp;
-    document.getElementById('keyVal').innerText = keysOwned.length + "/3";
-    document.getElementById('islandVal').innerText = islandList[currentIslandIdx].name;
 
     renderer.render(scene, camera);
 }
 
-function triggerBossBattle(isl) {
-    if (Math.random() < 0.75) {
-        if (!keysOwned.includes(isl.rewardKey)) {
-            keysOwned.push(isl.rewardKey);
-            showMsg("🎉 CHIẾN THẮNG! Bạn đã bắn hạ " + isl.boss + " và nhận được Chìa Khóa mới!", 4500);
-        } else {
-            gold += 300;
-            showMsg("🎉 Tiêu diệt Boss thành công! Nhận thêm +300 🪙 Vàng!", 3500);
-        }
-    } else {
-        hp -= 25;
-        showMsg("💥 Boss phản công dữ dội! Thuyền bị hư hại mất -25 HP!", 3500);
-        if (hp <= 0) {
-            alert("Bạn đã cạn kiệt HP! Trò chơi kết thúc.");
-            location.reload();
-        }
-    }
-    keys['Space'] = false; // Chống lặp phím liên tục
-}
-
-// Khởi chạy 3D Engine
 init3D();
 animate();
 </script>
@@ -331,5 +253,5 @@ animate();
 </html>
 """
 
-# Nhúng game vào Streamlit qua component HTML
+# Nhúng vào Streamlit
 components.html(game_code, height=780, scrolling=False)
