@@ -5,23 +5,13 @@ import streamlit as st
 # Cấu hình giao diện Streamlit
 st.set_page_config(page_title="How to Catch Fish", page_icon="🎣", layout="wide")
 
-# --- CSS TÙY CHỈNH GIAO DIỆN CHUẨN NHƯ ẢNH ---
+# --- CSS TÙY CHỈNH GIAO DIỆN CHUẨN GAME ---
 st.markdown("""
     <style>
-    /* Ẩn header mặc định của streamlit để giống game full màn hình */
     header {visibility: hidden;}
     .stApp {
         background: linear-gradient(135deg, #0b1d28 0%, #162636 50%, #13222d 100%);
         color: #e2e8f0;
-    }
-    
-    /* Giao diện màn hình chính (Main Menu) */
-    .menu-container {
-        position: absolute;
-        top: 15%;
-        left: 8%;
-        z-index: 10;
-        width: 300px;
     }
     .game-title {
         font-family: 'Courier New', Courier, monospace;
@@ -43,8 +33,6 @@ st.markdown("""
         border-left: 2px solid #f6ad55;
         padding-left: 8px;
     }
-    
-    /* Hiển thị hòn đảo / đại dương minh họa bên phải */
     .island-view-box {
         background: radial-gradient(circle, #2d5a6f 0%, #0d212c 70%);
         border: 2px solid #2d4a5c;
@@ -52,22 +40,30 @@ st.markdown("""
         padding: 40px;
         text-align: center;
         box-shadow: 0px 10px 30px rgba(0,0,0,0.6);
-        min-height: 400px;
+        min-height: 380px;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
     }
+    .island-card {
+        background-color: #1e293b;
+        color: white;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 6px solid #00d2ff;
+        margin-bottom: 15px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 1. DỮ LIỆU ĐẢO VÀ CHÌA KHÓA ---
+# --- 1. DỮ LIỆU CÁC ĐẢO VÀ CHÌA KHÓA ---
 ISLAND_DATA = {
     1: {
         "name": "🏝️ Đảo Tân Thủ (Green Lake)",
         "difficulty": "Dễ 🟢",
-        "desc": "Vùng nước nông yên bình, nơi bắt đầu cuộc hành trình.",
-        "fishes": ["🐟 Cá Rô Phi", "🐠 Cá Bảy Màu", "🦐 Tôm Sông"],
+        "desc": "Vùng nước nông yên bình, thích hợp cho người mới bắt đầu.",
+        "fishes": ["🐟 Cá Rô Phi", "🐠 Cá Bảy Màu", "🦐 Tôm Biển"],
         "boss": "🦈 Cá Trê Khổng Lồ",
         "key_id_needed": None,
         "key_id_reward": 2,
@@ -76,7 +72,7 @@ ISLAND_DATA = {
     2: {
         "name": "🪸 Đảo San Hò (Coral Reef)",
         "difficulty": "Trung Bình 🔵",
-        "desc": "Vùng biển xanh thẫm ẩn chứa sinh vật nguy hiểm.",
+        "desc": "Vùng biển xanh thẫm ẩn chứa nhiều sinh vật săn mồi hung hãn.",
         "fishes": ["🐟 Cá Hồi Đại Dương", "🐙 Bạch Tuộc Nhỏ", "🦀 Cua Hoàng Gia"],
         "boss": "🐊 Cá Sấu Nước Mặn",
         "key_id_needed": 2,
@@ -86,7 +82,7 @@ ISLAND_DATA = {
     3: {
         "name": "🌋 Đảo Quái Vật (Volcano Isle)",
         "difficulty": "Khó 🔴",
-        "desc": "Vùng biển núi lửa nóng rực, sào huyệt của thủy quái.",
+        "desc": "Vùng biển núi lửa nóng rực, sào huyệt của thủy quái dị biến.",
         "fishes": ["🦈 Cá Mập Xám", "🦑 Mực Khổng Lồ", "🐍 Rắn Biển Biến Dị"],
         "boss": "🐉 Thủy Quái Leviathan",
         "key_id_needed": 3,
@@ -95,7 +91,7 @@ ISLAND_DATA = {
     }
 }
 
-# --- 2. KHỞI TẠO STATE ---
+# --- 2. KHỜI TẠO STATE ---
 if "game_state" not in st.session_state:
     st.session_state.game_state = "MENU"  # MENU, PLAYING, SETTINGS, CREDITS
     st.session_state.gold = 200
@@ -107,7 +103,7 @@ if "game_state" not in st.session_state:
     st.session_state.nav_menu = "FISHING"
 
 # =========================================================================
-# GIAO DIỆN 1: MÀN HÌNH CHÍNH (MAIN MENU GIỐNG ẢNH MẪU)[cite: 3]
+# GIAO DIỆN 1: MÀN HÌNH CHÍNH (MAIN MENU)
 # =========================================================================
 if st.session_state.game_state == "MENU":
     col_menu, col_scene = st.columns([1, 1.5])
@@ -121,7 +117,6 @@ if st.session_state.game_state == "MENU":
         
         st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
         
-        # Các nút menu chính
         if st.button("▶ CONTINUE", key="btn_continue", use_container_width=True):
             st.session_state.game_state = "PLAYING"
             st.rerun()
@@ -159,7 +154,6 @@ if st.session_state.game_state == "MENU":
 # =========================================================================
 elif st.session_state.game_state == "SETTINGS":
     st.title("⚙ Cài Đặt Trò Chơi")
-    st.write("Tùy chỉnh âm thanh và đồ họa:")
     st.slider("Âm lượng nhạc nền", 0, 100, 80)
     st.slider("Độ phân giải / Hiệu ứng", 1, 3, 2)
     
@@ -173,9 +167,8 @@ elif st.session_state.game_state == "SETTINGS":
 elif st.session_state.game_state == "CREDITS":
     st.title("ℹ Thông Tin Nhà Phát Triển")
     st.markdown("""
-    * **Tựa game:** How to Catch Fish[cite: 3]
+    * **Tựa game:** How to Catch Fish / How to Fish
     * **Thể loại:** Sinh tồn, Câu cá, Phiêu lưu khám phá đảo.
-    * **Phát triển bởi:** Trí tuệ nhân tạo & Bạn.
     """)
     if st.button("⬅ Trở về Menu Chính"):
         st.session_state.game_state = "MENU"
@@ -185,7 +178,6 @@ elif st.session_state.game_state == "CREDITS":
 # GIAO DIỆN 4: TRONG TRÒ CHƠI (GAMEPLAY CHÍNH)
 # =========================================================================
 elif st.session_state.game_state == "PLAYING":
-    # Thanh tiêu đề phụ trong game & nút quay về menu
     c_head1, c_head2 = st.columns([4, 1])
     with c_head1:
         st.markdown("### 🎣 HOW TO CATCH FISH: ISLAND EXPLORER")
@@ -207,7 +199,7 @@ elif st.session_state.game_state == "PLAYING":
 
     st.markdown("---")
 
-    # Thanh menu điều hướng trong game
+    # Menu điều hướng trong game
     m1, m2, m3, m4 = st.columns(4)
     with m1:
         if st.button("🎣 Hồ Câu", key="nav_fish", use_container_width=True):
@@ -277,7 +269,7 @@ elif st.session_state.game_state == "PLAYING":
         
         for island_id, data in ISLAND_DATA.items():
             st.markdown(f"""
-                <div style='background-color: #1e293b; color: white; padding: 15px; border-radius: 10px; border-left: 6px solid #00d2ff; margin-bottom: 15px;'>
+                <div class="island-card">
                     <h4 style='margin:0;'>{data['name']} ({data['difficulty']})</h4>
                     <p style='margin:5px 0 0 0; font-size: 14px;'>{data['desc']}</p>
                 </div>
